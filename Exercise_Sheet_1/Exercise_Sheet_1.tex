@@ -1,0 +1,151 @@
+\documentclass[headinclude,headsepline]{scrartcl}
+
+%packages
+\usepackage{scrlayer-scrpage} % header
+\usepackage{hyperref} % links
+\usepackage{paralist} % enumerations
+\usepackage[margin=1.15in]{geometry}
+\usepackage{enumitem} % enumerations
+\usepackage{listings} % code blocks
+\usepackage[usenames,dvipsnames]{xcolor} % color names
+
+%commands
+\ihead{
+	\textbf{Übungsblatt 1}
+}
+\ohead{
+	Analysetechniken für große Datenbestände WS 20/21
+}
+\lstset{ % configure code listings
+	belowcaptionskip=1\baselineskip,
+	language=R,
+	breaklines=true,
+	basicstyle=\footnotesize\ttfamily,
+	commentstyle=\itshape\color{Gray},
+	stringstyle=\color{Orange},
+	keywordstyle=\bfseries\color{OliveGreen},
+	identifierstyle=\color[HTML]{000080},
+	frame=single, % adds a frame around the code
+	frameround=ffff,
+	framerule=0.2pt,
+	backgroundcolor=\color[HTML]{FAFDFF},
+	rulecolor=\color[HTML]{D2ECFE},
+	tabsize=2
+} 
+\hypersetup{
+	colorlinks=true, % false: boxed links; true: colored links
+	linkcolor=black, % color of internal links (change box color with linkbordercolor)
+	citecolor=black, % color of links to bibliography
+	filecolor=black, % color of file links
+	urlcolor=blue % color of external links
+}
+\newcommand{\taskcategory}[1]{{\color[HTML]{800000}\emph{(#1)}}}
+\newcommand{\taskname}[1]{\textbf{[#1]}}
+\newcommand{\code}[1]{{\color[HTML]{000080}\texttt{#1}}}
+
+\begin{document}
+
+\section*{Allgemeines}
+
+Die vorgesehene Bearbeitungszeit für das Übungsblatt endet am Freitag, 20.11.2020, um 12:00 Uhr.
+Kurze Zeit später werden die Lösung und das nächste Übungsblatt hochgeladen.
+
+Falls Sie anonymes Peer-Feedback zu Ihrem Code erhalten wollen, laden Sie Ihre Lösung zu den Programmieraufgaben innerhalb der Frist in das ILIAS-Übungsobjekt ``Abgaben'' hoch.
+Tun Sie dies bitte nur, wenn auch Sie bereit sind, zu den Lösungen zweier Kommiliton:innen Feedback zu geben.
+Anderseits ist für Sie kein Feedback sichtbar und Ihre zufällig zugelosten Partner:innen warten ebenfalls vergebens.
+Feedback kann erst nach Ablauf der Abgabefrist gegeben werden.
+Geben Sie das Feedback bis zum Mittwoch, 25.11.2020, 23:55 Uhr.
+Erst nach Ablauf dieser Feedbackfrist wird dann das erhaltene Feedback sichtbar.
+
+In der Form des Feedbacks sind Sie frei.
+Sie können gerne Stichpunkte verwenden.
+Grundidee ist, dass Sie vom Code anderer lernen können und wiederum Ihrerseits Komiliton:innen Verbesserungsvorschläge machen.
+Beispielsweise können Sie anmerken, wenn Teile des Codes einfacher, eleganter oder effizienter geschrieben werden könnten.
+Achten Sie darauf, konstruktiv zu bleiben und auch positive Punkte zu erwähnen.
+
+\section{Online-Test 1}
+
+Der erste Online-Test steht ab dem 02.11.2020, 00:00 Uhr im ILIAS bereit.
+Er beschäftigt sich mit den Vorlesungskapiteln 1 (Einleitung) und 2 (statistische Grundlagen, bis inklusive der statistischen Tests).
+
+\section{Deskriptive Statistik und Grundlagen von R}
+
+Ziel dieser Aufgabe ist es, grundlegende Datenstrukturen und Sprachkonstrukte von R kennenzulernen und sie für deskriptive Statistik anzuwenden.
+
+\vspace{10pt}
+
+\begin{compactenum}[a)]\itemsep10pt
+	\item
+	\taskname{Tutorial}
+	Im ILIAS steht ein PDF bereit, welche die Grundlagen von R erläutert.
+	Dies soll Ihnen lediglich einen groben Überblick vermitteln und als Nachschlagewerk dienen.
+	Der Fokus der Übungen liegt auf der Anwendung von R auf spezifische Data-Mining-Probleme,
+	nicht auf dem umfänglichen Erlernen der Sprache.
+	\item
+	\taskname{Standardabweichung (1)}
+	Schreiben Sie eine Funktion \code{stddev()}, welche als Parameter einen Vektor \code{x} und einen Bool'schen Wert \code{population} erhält.
+	Die Funktion soll mittels einer Schleife die Standardabweichung berechnen.
+	Falls \code{population} den Wert \code{TRUE} annimmt, soll mit der Vektorlänge $n$ normalisiert werden, ansonsten mit $n-1$.
+	Die Funktion soll eine Liste mit den Komponenten \code{result} und \code{n} zurückgeben.
+	Falls \code{x} einen fehlenden Wert (\code{NA}) enthält, soll die Funktion mittels \code{stopifnot()} eine Exception werfen.
+	\taskcategory{Basis}
+	\item
+	\taskname{Standardabweichung (2)}
+	Berechnen Sie für einen zufälligen, normalverteilten Vektor die Differenz zwischen dem Ergebnis Ihrer Funktion und der eingebauten Funktion \code{sd()}.
+	Wiederholen Sie dies, sodass Sie einen Vektor von Differenzen erhalten.
+	Geben Sie eine statistische Zusammenfassung des Differenzvektors aus und plotten Sie ein Histogramm.
+	Wie interpretieren Sie die Ergebnisse?
+	\taskcategory{Basis}
+	\item
+	\taskname{Standardabweichung (3)}
+	Nutzen Sie das Paket \code{microbenchmark}, um die Performance Ihrer Schleifen-basierten Funktion mit der eingebauten Funktion \code{sd()} zu vergleichen.
+	Ersetzen Sie die Schleife durch \code{sum()} und wiederholen Sie den Benchmark.
+	Welche Schlussfolgerungen ziehen Sie aus dem Vergleich?
+	\taskcategory{Vertiefung}
+	\item
+	\taskname{Plots (1)}
+	Nutzen Sie den weltbekannten\footnote{Zumindest so bekannt, dass er einen Wikipedia-Eintrag hat: \url{https://en.wikipedia.org/wiki/Iris_flower_data_set}} Iris-Datensatz mittels Zugriff auf die Variable \code{iris}.
+	Wählen Sie eines der Attribute aus und erstellen Sie ein Histogramm sowie einen Boxplot.
+	Versuchen Sie, beim Histogramm die Anzahl der Buckets zu verändern.
+	Erstellen Sie außerdem einen Scatterplot, der ein Attribut auf der einen Achse hat und ein anderes Attribut auf der anderen Achse.
+	Färben Sie die Datenpunkte dabei entsprechend der Spalte \code{Species} ein.
+	\taskcategory{Basis}
+	\item
+	\taskname{Plots (2)}
+	Nutzen sie das Paket \code{ggplot2}, um die Plots aus der vorigen Aufgabe in etwas hübscherer Form zu erstellen.
+	Versuchen Sie, den Titel des Plots, die Achsentitel und das Farbschema zu ändern. (Dies können Sie im Übrigen auch für die vorherigen Plots machen.)
+	\taskcategory{Vertiefung}
+\end{compactenum}
+
+\section{Statistische Tests}
+
+Ziel dieser Aufgabe ist es, anhand des \code{iris}-Datensatzes verschiedene statistische Tests anzuwenden und zu interpretieren.
+Da R als Sprache für statistische Berechnungen konzipiert ist, können wir von einer Vielzahl eingebauter Test profitieren.
+
+\vspace{10pt}
+
+\begin{compactenum}[a)]\itemsep10pt
+	\item
+	\taskname{$\chi^2$-Test (1)}
+	Nutzen Sie den $\chi^2$-Test (Funktion: \code{chisq.test()}), um festzustellen, wie die numerischen Attribute mit dem Attribut \code{Species} zusammenhängen.
+	Mittels der Funktion \code{cut()} können Sie dabei numerische Attribute diskretisieren.
+	Was bedeuten die Ergebnisse?
+	\taskcategory{Basis}
+	\item
+	\taskname{$\chi^2$-Test (2)}
+	Erstellen Sie Boxplots der numerischen Attribute, gruppiert nach \code{Species}.
+	Wie hängen die Plots mit den Ergebnissen der statistischen Tests zusammen?
+	\taskcategory{Vertiefung}
+	\item
+	\taskname{Kolmogorov-Smirnov-Test}
+	Nutzen Sie den Kolmogorov-Smirnov-Test (Funktion: \code{ks.test()}), um festzustellen, ob das Attribut \code{Sepal.Width} für die beiden \code{Species} namens \code{versicolor} und \code{virginica} unterschiedlich verteilt ist.
+	Wiederholen Sie die Analyse für das Attribut \code{Petal.Width} und interpretieren Sie die Ergebnisse.
+	\taskcategory{Vertiefung}
+	\item
+	\taskname{Wilcoxon–Mann–Whitney-Test}
+	Nutzen Sie den Wilcoxon–Mann–Whitney-Test (Funktion: \code{wilcox.test()}), um festzustellen, ob das Attribut \code{Sepal.Width} für die beiden \code{Species} namens \code{versicolor} und \code{virginica} unterschiedlich verteilt ist.
+	Wiederholen Sie die Analyse für das Attribut \code{Petal.Width} und interpretieren Sie die Ergebnisse.
+	\taskcategory{Vertiefung}
+\end{compactenum}
+
+\end{document}

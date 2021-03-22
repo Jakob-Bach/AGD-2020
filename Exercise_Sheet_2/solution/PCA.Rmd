@@ -1,0 +1,239 @@
+---
+title: "Exercise 2 of \"Big Data Analytics\" (Winter Semester 2020/21)"
+output: html_notebook
+---
+
+# Task 2: Principal Component Analysis
+
+Let's recap the structure of the dataset:
+
+```{r}
+summary(iris)
+```
+
+As PCA is unsupervised, we don't need the class variable.
+
+```{r}
+dataset <- iris[, colnames(iris) != "Species"]
+```
+
+## a) Computation
+
+Computing PCA is just one function call:
+
+```{r}
+pca.fit <- prcomp(dataset, scale. = TRUE)
+str(pca.fit)
+```
+
+We will use `sdev` later.
+`rotation` is the transformation matrix.
+`x` is the dataset after transformation.
+Furthermore, scaling information is stored in `center` (= means of attributes of original data)
+and `scale` (= standard deviations of attributes of original data).
+
+You can alternatively get the transformed data with the `predict()` method:
+
+```{r}
+all(pca.fit$x == predict(pca.fit, newdata = dataset))
+```
+
+(The function can also be used to transform other data to the same basis.)
+
+If we manually scale the data and multiply with the transformation matrix, we also get the same result:
+
+```{r}
+scaledDataset <- scale(dataset)
+all(pca.fit$x == scaledDataset %*% pca.fit$rotation)
+```
+
+By the way, there also is a function `princomp()`, which computes PCA with a different algorithm.
+However, it is less preferable from the numeric perspective.
+
+Regarding the normalization question:
+Features in your dataset might have different variances.
+From the summary above, we already see that the ranges are different for our features, though this does not directly say something about variance.
+We can also compute variance by applying the `var` function to each column of the dataset:
+
+```{r}
+sapply(dataset, var)
+```
+
+If one feature has a lot of variance, it gets more weight by PCA.
+However, we don't want PCA to mainly capture the initial scaling of the data.
+PCA should consider the relationship between features.
+There also is a [StackExchange post](https://stats.stackexchange.com/questions/69157/why-do-we-need-to-normalize-data-before-principal-component-analysis-pca) on that issue.
+
+## b) Explained Variance
+
+The element `sdev` of our PCA result contains the standard deviation captured by the principle components.
+From that, we can easily determine the individual fraction of variance explained:
+
+```{r}
+pca.fit$sdev^2 / sum(pca.fit$sdev^2)
+```
+
+... and the accumulated fraction of variance explained:
+
+```{r}
+cumsum(pca.fit$sdev^2) / sum(pca.fit$sdev^2)
+```
+
+By the way, we get the same result if we call the `summary()` function:
+
+```{r}
+summary(pca.fit)
+```
+
+The default `plot()` method is overridden for `prcomp` objects:
+
+```{r}
+plot(pca.fit)
+```
+
+We can easily get a similar, though more ugly, result with a manual plot:
+
+```{r}
+plot(pca.fit$sdev^2, type = "h") # "h" creates vertical lines
+```
+
+To make things more pretty, we can use `ggplot2`:
+
+```{r}
+library(ggplot2)
+ggplot(data = data.frame(PC = 1:length(pca.fit$sdev), Variance = pca.fit$sdev^2)) +
+  geom_bar(mapping = aes(x = PC, y = Variance), stat = "identity")
+```
+
+Regarding the implementation. we see that `ggplot2` is slightly less comfortable if you don't already have a `data.frame`.
+Also, the bar plot usually counts values for each category itself (`stat = "count"`).
+If we want to supply the height of the bars directly, we have to set `stat` to `"identity"`.
+
+## c) Feature Plots
+
+Let's have a look at the first two original features after scaling:
+
+```{r}
+library(ggplot2)
+ggplot(data.frame(scaledDataset)) +
+  geom_point(mapping = aes_string(x = colnames(scaledDataset)[1],
+                                  y = colnames(scaledDataset)[2])) +
+  coord_fixed()
+```
+
+The original but scaled features have the same variance.
+Some implementation details:
+First, don't forget we are actually interested in the scaled version of the dataset.
+In the unscaled version, we would notice a difference in variance (you could try that out).
+Second, note that we pass the column names as strings instead of unquoted names (compare that to the last plotting call).
+Thus, we us `aes_string()` instead of `aes()`.
+Third, `coord_fixed()` allows us to fix the ratio between the axes units.
+
+Now have a look at the first two principal components:
+
+```{r}
+library(ggplot2)
+ggplot(data.frame(pca.fit$x)) +
+  geom_point(mapping = aes_string(x = colnames(pca.fit$x)[1],
+                                  y = colnames(pca.fit$x)[2])) +
+  coord_fixed()
+```
+
+The plot after transformation exhibits an interesting structure.
+In general, PCA concentrates more variance in the first components, as we also computed above.
+Though the ranges of the first two principal components look rather similar here, note that PC2 scatters more regularly around the mean of zero.
+In contrast, PC1 has values scattered right of the mean and many points far on the left, which results in a higher variance.
+
+## d) Feature Correlation
+
+Fortunately, the function `cor()` supports a matrix and then computes the correlation between each pair of columns.
+Thus, we only need two one-liners of code.
+
+```{r}
+library(corrplot)
+corrplot(cor(scaledDataset), method = "pie")
+corrplot(cor(pca.fit$x), method = "pie")
+```
+
+As you might remember from the lecture, principal components are orthogonal to each other,
+i.e.., their dot product is zero,
+i.e., their covariance is zero (considering their mean is also zero),
+i.e., their correlation is zero.
+
+## e) MSE
+
+Implementing the MSE function is quite easy if we use R's built-in vectorized operations.
+The function even works for vectors as well as matrices.
+
+```{r}
+mse <- function(x1, x2) {
+  return(mean((x1 - x2)^2))
+}
+```
+
+## f) Reconstruction Error
+
+First, as a simple test, we compute the MSE after re-transforming the (full) transformed dataset back.
+We can do this by multiplying the transformed dataset with the inverted transformation matrix:
+
+```{r}
+mse(pca.fit$x %*% solve(pca.fit$rotation), scaledDataset)
+```
+
+Though this is lossless (apart from numeric errors), you don't save any memory --
+the transformed matrix is just as big as the original matrix.
+Thus, it makes sense just to store the first k components, which introduces some reconstruction error.
+What are the MSEs if we only keep one principal component?
+
+```{r}
+sapply(1:ncol(scaledDataset), function(i) {
+  mse(pca.fit$x[, i] %o% solve(pca.fit$rotation)[i, ], scaledDataset)
+})
+```
+
+We can clearly see that that the first components yield a lower reconstruction error.
+If we use more than one principal component, we can also see that the error decreases:
+
+```{r}
+sapply(1:ncol(scaledDataset), function(i) {
+  if (i == 1) { # (outer) matrix-vector product
+    mse(pca.fit$x[, 1] %o% solve(pca.fit$rotation)[1, ], scaledDataset)
+  } else {# matrix-matrix product
+    mse(pca.fit$x[, 1:i] %*% solve(pca.fit$rotation)[1:i, ], scaledDataset)
+  }
+})
+```
+
+Finally, for comparison, we simulate a transformation to each original feature and back from that.
+This means we keep one feature each and set the other columns to zero, their mean after scaling:
+(i.e., we rather do a projection than a transformation)
+
+```{r}
+sapply(1:ncol(scaledDataset), function(i) {
+  transformedDataset <- scaledDataset
+  transformedDataset[, -i] <- 0
+  mse(transformedDataset, scaledDataset)
+})
+```
+
+We can see that all features result in a rather high reconstruction error.
+The MSEs are the same due to our initial scaling to unit variance.
+By the way, there is a [StackExchange post](https://stats.stackexchange.com/questions/184603/in-pca-what-is-the-connection-between-explained-variance-and-squared-error) explaining the relationship between explained variance and reconstruction error.
+Roughly speaking, the proportion of explained variance equals one minus normalized error.
+Here, after normalization, each of the four features accounts for 25% of the variance.
+Thus, a reduction to one feature results in a (normalized) error of roughly 75%.
+It's not exactly 75%, since normalization of the dataset was done with the sample standard deviation,
+i.e., dividing by n-1 instead of n.
+Thus, the MSE of replacing the whole dataset with zero is not exactly 1:
+
+```{r}
+mse(scaledDataset, 0)
+```
+
+Considering this, we get an explained variance of
+
+```{r}
+1 - 0.745 / mse(scaledDataset, 0)
+```
+
+for transforming to one feature, as we expected.

@@ -1,0 +1,162 @@
+\documentclass[headinclude,headsepline]{scrartcl}
+
+%packages
+\usepackage[ngerman]{babel} % hyphenation
+\usepackage{scrlayer-scrpage} % header
+\usepackage{hyperref} % links
+\usepackage{paralist} % enumerations
+\usepackage[margin=1.15in]{geometry}
+\usepackage{enumitem} % enumerations
+\usepackage{listings} % code blocks
+\usepackage[usenames,dvipsnames]{xcolor} % color names
+
+%commands
+\ihead{
+	\textbf{Übungsblatt 5}
+}
+\ohead{
+	Analysetechniken für große Datenbestände WS 20/21
+}
+\lstset{ % configure code listings
+	belowcaptionskip=1\baselineskip,
+	language=R,
+	breaklines=true,
+	basicstyle=\footnotesize\ttfamily,
+	commentstyle=\itshape\color{Gray},
+	stringstyle=\color{Orange},
+	keywordstyle=\bfseries\color{OliveGreen},
+	identifierstyle=\color[HTML]{000080},
+	frame=single, % adds a frame around the code
+	frameround=ffff,
+	framerule=0.2pt,
+	backgroundcolor=\color[HTML]{FAFDFF},
+	rulecolor=\color[HTML]{D2ECFE},
+	tabsize=2
+}
+\hypersetup{
+	colorlinks=true, % false: boxed links; true: colored links
+	linkcolor=black, % color of internal links (change box color with linkbordercolor)
+	citecolor=black, % color of links to bibliography
+	filecolor=black, % color of file links
+	urlcolor=blue % color of external links
+}
+\newcommand{\taskcategory}[1]{{\color[HTML]{800000}\emph{(#1)}}}
+\newcommand{\taskname}[1]{\textbf{[#1]}}
+\newcommand{\code}[1]{{\color[HTML]{000080}\texttt{#1}}}
+
+\begin{document}
+
+\section*{Allgemeines}
+
+Die vorgesehene Bearbeitungszeit für das Übungsblatt endet am Freitag, 12.02.2021, um 12:00 Uhr.
+Kurze Zeit später wird das nächste Übungsblatt hochgeladen.
+
+Falls Sie anonymes Peer-Feedback geben und erhalten wollen, laden Sie Ihre Lösung zu den Programmieraufgaben innerhalb der Frist in das ILIAS-Übungsobjekt ``Abgaben'' hoch.
+Feedback kann erst nach Ablauf der Abgabefrist gegeben werden.
+Geben Sie das Feedback bis zum Mittwoch, 17.02.2021, 23:55 Uhr.
+Erst nach Ablauf dieser Feedbackfrist wird dann das erhaltene Feedback sichtbar.
+Weitere Details zum Peer-Feedback finden Sie in der Datei ``Feedback\_geben.pdf'' im ILIAS.
+
+\section{Online-Test 5}
+
+Der fünfte Online-Test steht ab dem 18.01.2021, 00:00 Uhr im ILIAS bereit.
+Er beschäftigt sich mit den Vorlesungskapiteln 9 (Clustering) und 10 (Identifikation von Outliern).
+
+\section{Clustering}
+
+Ziel dieser Aufgabe ist es, verschiedene Clustering-Verfahren auf den eingebauten \code{faithful}-Datensatz anzuwenden und zu vergleichen.
+
+\vspace{10pt}
+\begin{compactenum}[a)]\itemsep10pt
+	\item
+	\taskname{Visualisierung}
+	Machen Sie sich mit den \code{faithful}-Daten vertraut.
+	Normalisieren Sie die Daten mit \code{scale()} und erstellen Sie einen Scatterplot.
+	Können Sie bereits Cluster erkennen?
+	Warum haben wir die Daten überhaupt normalisiert?
+	\taskcategory{Basis}
+	\item
+	\taskname{Partitionierendes Clustering}
+	Wenden Sie mittels \code{kmeans()} ein partitionierendes Clustering-Verfahren an.
+	Visualisieren Sie die Ergebnisse (indem Sie z.~B. die Punkte im Scatterplot gemäß der Clusterzugehörigkeit einfärben) für verschiedene Werte von $k$.
+	Warum führt k-means zu diesen Ergebnissen?
+	\taskcategory{Basis}
+	\item
+	\taskname{Silhouettenkoeffizient}
+	Berechnen Sie mittels \code{cluster::silhouette()} die Qualität der k-means-Ergebnisse.
+	Sie können die Ergebnisse der Silhouettenberechnung mit \code{plot()} visualisieren.
+	Wie sind Silhouetten-Plots zu interpretieren?
+	Wie kann Ihnen der Silhouettenkoeffizient helfen, ein geeignetes $k$ zu finden?
+	\taskcategory{Basis}
+	\item
+	\taskname{Hierarchisches Clustering}
+	Wenden Sie mittels \code{hclust()} ein hierarchisches Cluste\-ring-Verfahren an.
+	Wozu dient der Parameter \code{method}?
+	Visualisieren Sie das Dendrogramm durch Plotten des Ergebnis-Objektes.
+	Wie bekommen Sie eine Cluster-Zuordnung aus dem Dendrogramm?
+	Vergleichen Sie die Ergebnisse zu denen von k-means.
+	\taskcategory{Vertiefung}
+	\item
+	\taskname{Dichtebasiertes Clustering (1)}
+	Wenden Sie mittels \code{dbscan::dbscan()} ein Dichte-basiertes Clustering-Verfahren an und visualisieren Sie das Ergebnis.
+	Warum erhalten Sie so ein Ergebnis?
+	Wie können Sie das Ergebnis verbessern?
+	Ist der Silhouettenkoeffizient hier ein geeignetes Qualitätsmaß?
+	\taskcategory{Basis}
+	\item
+	\taskname{Dichtebasiertes Clustering (2)}
+	Verwenden Sie \code{dbscan::optics()} zum Dichte-basierten Clustern.
+	Visualisieren Sie das Ergebnis-Objekt mittels \code{plot()} als Erreichbarkeitsgraphen.
+	Lässt sich damit ein geeigneter Wert für $\epsilon$ bestimmen?
+	Wandeln Sie das OPTICS-Ergebnis über \code{extractDBSCAN()} in ein DBSCAN-Ergebnis um und visualisieren Sie es.
+	\taskcategory{Vertiefung}
+	\item
+	\taskname{Mixture Models}
+	Verwenden Sie \code{mclust::Mclust()} zum Clustern auf Basis von Gaussian Mixture Models.
+	Welche Hyper-Parameter hat das Modell und wie werden deren Werte bestimmt?
+	Wie erklären Sie sich das Clustering-Ergebnis?
+	Die \code{plot()}-Funktion kann Ihnen bei der Beantwortung helfen.
+	\taskcategory{Vertiefung}
+\end{compactenum}
+
+\section{Outlier Detection}
+
+Ziel dieser Aufgabe ist es, verschiedene Arten von Ausreißern in den \code{faithful}-Daten zu finden.
+Vergessen Sie nicht, die Daten zuvor zu normalisieren.
+
+\vspace{10pt}
+\begin{compactenum}[a)]\itemsep10pt
+	\item
+	\taskname{Visualisierung}
+	Visualisieren Sie die Verteilung der Attribute im \code{faithful}-Datensatz mit univariaten und bivariaten Plots, z.~B. mit Dichteplots oder Histogrammen.
+	(In \code{ggplot2} eignen sich z.~B. \code{geom\_density()}, \code{geom\_histogram()} und \code{geom\_bin2d()}.)
+	Welche Punkte könnten Ausreißer sein?
+	\taskcategory{Basis}
+	\item
+	\taskname{Ausreißererkennung}
+	Wenden Sie \code{KNN\_SUM()} aus dem Paket \code{DDoutlier} als einen kNN-Distanz-basierten Ansatz und \code{lof()} aus dem Paket \code{dbscan} als einen Dichte-basierten Ansatz an.
+	Übergeben Sie hierbei den ganzen Datensatz, d.h. mit beiden Spalten.
+	Visualisieren Sie die Datenpunkte zusammen mit Ihrem Ausreißer-Score.
+	In \code{ggplot2} können Sie zum Beispiel \code{color} und \code{size} zur Hervorhebung verwenden.
+	Für welche Datenpunkte unterscheiden sich die Ergebnisse der beiden Ausreißererkennungsverfahren stark und warum?
+	\taskcategory{Basis}
+	\item
+	\taskname{Teilraum-Ausreißer}
+	Berechnen Sie die Ausreißer-Scores nun jeweils einzeln auf den Attributen (Spalten) des Datensatzes.
+	Vergleichen Sie die Ergebnisse zum vorigen zweidimensionalen Ansatz.
+	Gibt es Punkte, die nur in einem Teilraum Ausreißer sind?
+	Gibt es nicht-triviale Ausreißer in den Daten?
+	\taskcategory{Vertiefung}
+\end{compactenum}
+
+\section{Bring Your Own Theoretical Task}
+
+Denken Sie sich für die nächste Übungssitzung eine Frage aus, wie sie in der mündlichen Prüfung gestellt werden könnte.
+Sie können sich von der Art her an den möglichen Prüfungs\-fragen am Ende der Vorlesungskapitel orientieren.
+Inhaltlich sollte sich die Frage auf eines der Vorlesungskapitel 9 (Clustering) bis 10 (Identifikation von Outliern) beziehen.
+Vom Niveau her sollte die Frage nicht einfach Wissen 1:1 abfragen, sondern Verständnis fordern.
+Beispielsweise könnte es darum gehen, Sachverhalte zu vergleichen, einzuordnen, zu analysieren etc.
+Wir werden die Fragen in der Übungssitzung zunächst in Kleingruppen diskutieren und danach die interessantesten Fragen im Plenum besprechen.
+Sie müssen die Frage nicht zusammen mit Ihrem Code hochladen.
+
+\end{document}

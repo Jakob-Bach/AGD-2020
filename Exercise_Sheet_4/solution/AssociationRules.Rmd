@@ -1,0 +1,392 @@
+---
+title: "Exercise 4 of \"Big Data Analytics\" (Winter Semester 2020/21)"
+output: html_notebook
+---
+
+# Task 2: Association Rules
+
+## a) Transaction data
+
+Let's load the data:
+
+```{r}
+library(arules)
+data(Groceries)
+```
+
+If you have an R console, you can get a dataset description with `help(Groceries)`.
+In any case, we can use the standard structure and summary functions:
+
+```{r}
+str(Groceries)
+```
+
+As you can see, the package provides a special class to store transactions of items in a matrix.
+As each transaction usually includes only a small fraction of all items, a sparse matrix is used.
+Note the `@` notation instead of the `$` notation:
+This means are dealing with an S4 object
+(which, apart from the syntactical difference to lists/S3 objects, has no consequence for us).
+You might have noticed that there are two further levels besides the basic item in `labels`:
+
+```{r}
+Groceries@itemInfo
+```
+
+The summary function provides rich information on the dataset:
+
+```{r}
+summary(Groceries)
+```
+
+There are also many other specific or overridden functions for `transactions` objects.
+For example, `length()` returns the number of transactions:
+
+```{r}
+length(Groceries)
+```
+
+You can easily find duplicated transactions with `duplicated()` (which also is a standard R functions for vectors):
+
+```{r}
+table(duplicated(Groceries))
+```
+
+
+We can count the number of items per transaction:
+
+```{r}
+table(size(Groceries))
+```
+
+We can inspect single transactions, making use of standard R vector indexing:
+
+```{r}
+inspect(Groceries[1:10])
+```
+
+Finally, we can count the frequency of items (to keep the output short, we just show the counts for 10 items):
+
+```{r}
+itemFrequency(Groceries)[1:10]
+```
+
+... and also plot frequencies, e.g., limited to the top items:
+
+```{r}
+itemFrequencyPlot(Groceries, type = "relative", topN = 10)
+```
+
+You could also filter by `support` (only show items with a certain support).
+
+As you saw, the package has quite a broad interface, though we won't use much of the functionality later.
+
+## b) Frequent Itemset Mining
+
+We can call the mining function right away.
+Only make sure that you really mine itemsets, and not association rules:
+
+```{r}
+itemsets <- apriori(data = Groceries, parameter = list(supp = 0.05,
+    target = "frequent itemsets"))
+str(itemsets)
+```
+
+The resulting object again is quite complex.
+We get the itemsets, quality measures, and information about the initial dataset.
+Let's see if the summary is more helpful:
+
+```{r}
+summary(itemsets)
+```
+
+Already looks better.
+Let's have a look at the itemsets:
+
+```{r}
+inspect(itemsets)
+```
+
+There are two ways to get maximally frequent itemsets.
+First, we can post-process our mining result:
+
+```{r}
+summary(itemsets[is.maximal(itemsets)])
+```
+
+As you can see, we can index `itemsets` objects like a vector.
+By the way, you can use `help("rules-class")` and `help("itemsets-class")` to see which methods are available for these objects.
+
+Alternatively, we can also directly mine the maximally frequent itemsets, getting the same result:
+
+```{r}
+itemsets <- apriori(data = Groceries, parameter = list(supp = 0.05,
+    target = "maximally frequent itemsets"), control = list(verbose = FALSE))
+summary(itemsets)
+inspect(itemsets)
+```
+
+The number of maximally frequent itemsets is lower than the number of frequent itemsets.
+The algorithm removes all frequent itemsets which are a subset of another frequent itemset.
+Here, we had some itemsets of size one which were part of frequent itemsets of size two.
+(Compare the tables with the frequent itemsets!)
+
+## c) Association Rule Mining
+
+We use the same function for association rule mining:
+
+```{r}
+rules <- apriori(data = Groceries, parameter = list(supp = 0.01, conf = 0.4),
+                 control = list(verbose = FALSE))
+str(rules)
+```
+
+The structure of `rules` objects is somewhat similar to that of `itemsets` objects.
+Note that we have two objects of class `itemMatrix` now, the left-hand side (`lhs`) and right-hand side (`rhs`).
+Also, `quality` partly stores different metrics.
+Again, we get a nice summary:
+
+```{r}
+summary(rules)
+```
+
+Also, we can access the mined rules:
+
+```{r}
+inspect(rules)
+```
+
+We filter the mined rules as a post-processing step to answer the two questions from the exercise sheet.
+The `head()` function is a standard R function which can be applied to `rules` objects:
+(The function usually returns the first $n$ objects, here it also allows to sort by a criterion)
+
+```{r}
+inspect(head(rules, n = 5, by = "confidence"))
+```
+
+The `subset()` function and the `%in%` operator are also overridden:
+
+```{r}
+inspect(subset(rules, subset = lhs %in% "yogurt" & confidence > 0.5))
+```
+
+## d) Visualization
+
+The `arulesViz` package overrides the standard plot functionality:
+
+```{r}
+library(arulesViz)
+plot(rules)
+```
+
+You can create a variety of different plot types; see the help for more details.
+However, I highly recommend to run `ruleExplorer(rules)` on your PC.
+You get a web-app with interactive plots and filtering capabilities.
+Though R is not the programming language of choice for GUIs, the `shiny` package allows building such simple web-apps.
+
+## e) Constraints (1)
+
+We don't need to use a separate function -- `apriori` readily supports simple constraints.
+You can define the inclusion or exclusion of certain items for both sides of the rules:
+
+```{r}
+rules <- apriori(data = Groceries, parameter = list(supp = 0.01, conf = 0.4),
+                 appearance = list(rhs = c("yogurt")), control = list(verbose = FALSE))
+inspect(rules)
+```
+
+Well, we see nothing.
+There don't seem to be any rules matching the criterion.
+We just need to replace `rhs` with `lhs` to do the same for the left-hand side:
+
+```{r}
+rules <- apriori(data = Groceries, parameter = list(supp = 0.01, conf = 0.4),
+                 appearance = list(lhs = c("yogurt")), control = list(verbose = FALSE))
+inspect(rules)
+```
+
+Here we have one rule.
+As you know from the lecture, support of association rules is defined in terms of frequency of the union of LHS itemset and RHS itemset.
+Thus, from the support perspective, we can swap sides and still get the same result.
+You see the support above, but we can also compute it manually:
+
+```{r}
+sum(Groceries %ain% c("yogurt", "whole milk")) / length(Groceries)
+```
+
+The `%ain` operator checks whether transactions contain both the items.
+
+However, confidence divides the support of the rules by the support of the left-hand side.
+Here, we have a difference between `yogurt` and `whole milk`:
+
+```{r}
+itemFrequency(Groceries)[c("yogurt", "whole milk")]
+```
+
+`yogurt` is generally more rare in the dataset than `whole milk`.
+Thus, the rule with `yogurt` as LHS meets the confidence threshold, while an inverted rule with `whole milk` as LHS has not enough confidence.
+
+## f) Constraints (2)
+
+For post-processing, we use the `%oin%` operator, which checks for set equality:
+
+```{r}
+rules <- apriori(data = Groceries, parameter = list(supp = 0.01, conf = 0.4),
+                 control = list(verbose = FALSE))
+inspect(subset(rules, subset = rhs %oin% "yogurt"))
+```
+
+As we could expect, there are no rules after the post-processing.
+
+```{r}
+inspect(subset(rules, subset = lhs %oin% "yogurt"))
+```
+
+For the other direction, we again get one rule.
+
+Generally, one can obtain the same result by post-processing and by directly considering constraints.
+Pushing the constraints deeper into mining reduces computational effort, as invalid itemsets / rules are pruned earlier.
+However, if we wanted to change the constraints, we would have to run the algorithm again.
+(Unless we want to make the constraints stricter, which can be done by post-processing).
+Mining more broadly and pruning as post-processing provide more flexibility, e.g., to try alternative constraints.
+Overall, it depends on your use case if direct use of constraints or post-processing is better.
+
+## g) Multi-Level (1)
+
+As we already noticed when having an initial look at the data, they already contain higher-level categories of the items.
+Thus, aggregation is quite easy:
+
+```{r}
+groceriesAgg <- aggregate(Groceries, by = "level2")
+summary(groceriesAgg)
+```
+
+We get a `transactions` object, as we also had before.
+Note that `labels` and `level2` are the same now.
+The number of items (= columns) is lower.
+
+We run rule mining as before:
+
+```{r}
+rules <- apriori(data = groceriesAgg, parameter = list(supp = 0.1, conf = 0.4),
+                 control = list(verbose = FALSE))
+inspect(rules)
+```
+
+Though we basically work with the same transactions, we have much higher supports than before.
+This is a trivial consequence of merging multiple items to the same category, making the item matrix less sparse.
+Thus, it makes sense to increase the support threshold when mining on higher levels.
+
+## h) Multi-Level (2)
+
+We extend the dataset by adding the higher-level categories:
+
+```{r}
+groceriesMulti <- addAggregate(Groceries, by = "level2")
+summary(groceriesMulti)
+inspect(head(groceriesMulti))
+```
+
+As you can see, the new itemsets are the union of the old itemsets and the old categories now.
+A star denotes the latter.
+
+We can apply the mining algorithm as usual:
+
+```{r}
+rules <- apriori(data = groceriesMulti, parameter = list(supp = 0.1, conf = 0.4),
+                 control = list(verbose = FALSE))
+inspect(rules)
+```
+
+In the rules, we see a lot higher-level information, as it has an advantage in meeting the support threshold.
+Also, we notice a lot of rules involving items and their categories, e.g. `tropical fruit` and `fruit`.
+What could also happen, but what we don't have here (because of the support threshold) is that a similar rule appears as a low-level version and a high-level version.
+`filterAggregate` removes the rules between items and categories:
+
+```{r}
+inspect(filterAggregate(rules))
+```
+
+## i) Classification (1)
+
+We could discretize the dataset manually.
+However, `arulesCBA` also supports multiple discretization options.
+Here, we use an MDL-based approach.
+
+```{r}
+library(arulesCBA)
+irisDiscretized <- discretizeDF.supervised(Species ~ ., iris, method = "mdlp")
+head(irisDiscretized)
+```
+
+`arules` allows to cast data frames into transactions:
+
+```{r}
+irisTransactions <- as(irisDiscretized, "transactions")
+summary(irisTransactions)
+inspect(head(irisTransactions))
+```
+
+Each row becomes a transaction, each categorical value becomes an item.
+All transactions have the same size
+We can mine classification rules manually:
+
+```{r}
+rules <- apriori(irisTransactions, parameter = list(support = 0.2, confidence = 0.9),
+                 control = list(verbose = FALSE))
+rules <- subset(rules, subset = rhs %pin% "Species")
+inspect(rules)
+```
+
+We use a post-processing approach, because that way we can partially match the class-related items with `%pin%`.
+(For constrain-based mining, we needed to specify all item names related to the class.)
+The resulting rules have high confidence, which we can take as a good sign for classification.
+In fact, the rule-mining approach even has the advantage that we can control this quality criterion during mining.
+Furthermore, the resulting rules are interpretable.
+However, one can also see it as a downside that we have to define these quality criteria, as they clearly have a trade-off.
+It is not trivial to find a point which is optimal regarding a classification performance metric.
+Confidence can be seen as a kind of precision measure, but it is rule-specific.
+Rules might only describe a small part of the dataset.
+We can still control this with the support threshold.
+What we cannot control is how the rules interact, e.g., if they are redundant.
+Some data objects might be covered by multiple rules or no rule.
+We will see an approach to counter this in the next sub-task.
+
+However, before we continue, just have a look how `arulesCBA` can find the same rules, with a more classification-like interface:
+
+```{r}
+rules <- mineCARs(Species ~ ., transactions = irisTransactions, parameter = list(
+  support = 0.2, confidence = 0.9), control = list(verbose = FALSE))
+inspect(rules)
+```
+
+## j) Classification (2)
+
+Another disadvantage of the previous implementation is that does not produce a model with prediction functionality.
+This is where `CBA()` comes into play:
+
+```{r}
+cbaModel <- CBA(Species ~ ., data = irisTransactions, support = 0.2, confidence = 0.9)
+str(cbaModel)
+```
+
+We get a prediction model build around a `rules` object.
+Also, the number of rules is reduced compared to before:
+
+```{r}
+inspect(cbaModel$rules)
+```
+
+This is because the CBA algorithm uses additional pruning to get a smaller set of rules with good prediction performance.
+The last rule is a default for data objects not matched by any other rule.
+Let's have a look at the train set performance:
+
+```{r}
+prediction <- predict(cbaModel, irisTransactions)
+cat("Accuracy:", sum(prediction == iris$Species) / length(prediction))
+```
+
+Looks good.
+
+As you saw, association rules might provide a good baseline for classification tasks.
+Even apart from the prediction model, just learning and inspecting the rules might provide interesting insights.
+By the way, alternative packages for classification with association rules are `arc` and `rCBA`.

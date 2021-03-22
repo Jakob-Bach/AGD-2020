@@ -1,0 +1,172 @@
+---
+title: "Exercise 3 of \"Big Data Analytics\" (Winter Semester 2020/21)"
+output: html_notebook
+---
+
+# Task 2: Decision Trees
+
+To make our code more generic, we define variables for the dataset and the prediction target.
+This allows swapping the dataset if we wanted.
+
+```{r}
+dataset <- iris
+target <- "Species"
+```
+
+As a reminder, here are the plots of all attributes' distributions, grouped by `Species`:
+
+```{r}
+library(ggplot2)
+dataMelted <- reshape2::melt(data = dataset, measure.vars = setdiff(colnames(dataset), target))
+ggplot(data = dataMelted) +
+  geom_boxplot(mapping = aes_string(y = "value", fill = target)) +
+  facet_grid(variable ~ ., scales = "free_y") +
+  theme(legend.position = "bottom")
+```
+
+## a) Train-Test-Split
+
+We create a train-test split by sampling 70% of the row indices for training and using the rest for testing:
+
+```{r}
+set.seed(25)
+trainIdx <- sort(sample(1:nrow(dataset), size = round(0.7 * nrow(dataset)), replace = FALSE))
+testIdx <- c(1:nrow(dataset))[-trainIdx] # use all indices except trainIdx
+trainData <- dataset[trainIdx, ]
+testData <- dataset[testIdx, ]
+```
+
+`set.seed()` ensures reproducibility by initializing the random number generator.
+
+Why do we split at all?
+Well, we want to check whether our model can generalize or it just memorizes the training data, i.e., overfits.
+Some decision tree implementations simply split the data until all leaves only contain one class, even if they contain only one data object.
+This can result in overly specific rules.
+In `rpart`, you can use the parameter `control` to adjust the learning behavior.
+
+## b) Training
+
+Training basically is a one-liner:
+
+```{r}
+library(rpart)
+predictionFormula <- as.formula(paste(target, "~ ."))
+rpartModel <- rpart(predictionFormula, data = trainData)
+```
+
+The formula `Species ~ .` means that `Species` should be predicted from all other features.
+You could also list the features like `Species ~ Sepal.Length + Sepal.Width + Petal.Length + Petal.Width`.
+Formulas are special objects in R, belonging to class `formula`.
+In more complicated formulas, you can also include interaction terms between features.
+
+## c) Inspecting the Model
+
+By printing the model, we get a textual representation of the decision tree:
+
+```{r}
+print(rpartModel)
+```
+
+We do not only see the splits, but also the number of data objects and the class probabilities in each node.
+Nevertheless, a graphical representation is nicer:
+
+```{r}
+library(rpart.plot)
+rpart.plot(rpartModel)
+```
+
+Going back to the entropy task and the plot task, we already saw that `Petal.Length` is good for separating classes.
+Note that the `rpart` tree uses split points between attribute values, therefore choosing 2.5 in the first split
+(in the middle of the highest `Petal.Length` of `setosa` and the lowest `Petal.Length` of `versicolor`),
+while our split entropy algorithm considered the attribute values themselves, therefore proposing a split at 1.9
+(the highest `Petal.Length` of `setosa`).
+You can change the splitting algorithm in the `rpart()` call.
+For categorical data, it uses Gini impurity by default.
+While this criterion has a different formula than entropy, results seem similar here.
+
+Can we also use the default plot functionality of R?
+
+```{r}
+plot(rpartModel)
+```
+
+Seems to lack some information.
+Actually, we have to add labels manually:
+
+```{r}
+par(xpd = TRUE) # clip plot to figure region
+plot(rpartModel, compress = TRUE)
+text(rpartModel, use.n = TRUE) # "use.n" = add number of objects in leaf
+par(xpd = FALSE)
+```
+
+Still not something you wanted to show your boss, though.
+
+## d) Evaluation
+
+As we already saw above, the leaf nodes are quite pure, resulting in a high training accuracy:
+
+```{r}
+prediction <- predict(rpartModel, newdata = trainData, type = "class")
+table(prediction, trainData[[target]], dnn = c("prediction", "actual"))
+cat("Accuracy:", sum(prediction == trainData[[target]]) / nrow(trainData))
+```
+We get worse, but still acceptable results for the test data:
+
+```{r}
+prediction <- predict(rpartModel, newdata = testData, type = "class")
+table(prediction, testData[[target]], dnn = c("prediction", "actual"))
+cat("Accuracy:", sum(prediction == testData[[target]]) / nrow(testData))
+```
+In particular, there seem to be more `virginica` flowers predicted to be `versicolor`.
+Let's have a look how `Petal.Length`, the split attribute, is distributed for `virginica` in train and test:
+
+```{r}
+summary(trainData[trainData[[target]] == "virginica", "Petal.Length"])
+summary(testData[testData[[target]] == "virginica", "Petal.Length"])
+```
+
+The median and mean are lower in the test data than in the training data.
+Thus, there are some `virginica` objects in the test data having a `Petal.Length` which is considered to belong to `versicolor` in the training data.
+In general, training data should be representative for the true distribution of features and class labels.
+However, for a small sample, this is hard to achieve, and we didn't take care of it here.
+Furthermore, in real-world scenarios, after training a model, the value distribution of newly collected data objects might change due to various reasons.
+
+## e) Alternative Packages
+
+### `party`
+
+```{r}
+library(party)
+ctreeModel <- ctree(predictionFormula, data = trainData)
+print(ctreeModel) # rules of the tree
+plot(ctreeModel, type = "simple")
+prediction <- predict(ctreeModel, newdata = testData)
+table(prediction, testData[[target]], dnn = c("prediction", "actual"))
+cat("Accuracy:", sum(prediction == testData[[target]]) / nrow(testData))
+```
+
+The API of the `party` package is equally simple.
+We also get a built-in textual and graphical representation.
+The prediction function is called `predict()` in most ML-related R packages,
+and using a formula to specify the feature-target relationship is also common.
+However, there is no common super-class which would enforce such an interface.
+
+Here, we can see that the first split is what we expect from our entropy task.
+For the second split, `Petal.Length` instead of `Petal.Width` is used, which we also know to be well-discriminating.
+The actual splitting criterion is different to `rpart`, which explains the different structure of the tree.
+However, prediction performance is roughly comparable (considering the small size of the test set).
+
+### `C50`
+
+```{r}
+library(C50)
+c50Model <- C5.0(predictionFormula, data = trainData)
+summary(c50Model)
+plot(c50Model)
+prediction <- predict(c50Model, newdata = testData)
+table(prediction, testData[[target]], dnn = c("prediction", "actual"))
+cat("Accuracy:", sum(prediction == testData[[target]]) / nrow(testData))
+```
+
+Again, a similar API, but different default hyper-parameters and a different splitting procedure, resulting in a different tree structure.

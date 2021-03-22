@@ -1,0 +1,361 @@
+---
+title: "Exercise 3 of \"Big Data Analytics\" (Winter Semester 2020/21)"
+output: html_notebook
+---
+
+# Task 3: Classifier Evaluation
+
+First, we pre-load some packages we will use in multiple sub-tasks:
+
+```{r}
+library(data.table)
+library(ggplot2)
+library(rpart)
+```
+
+Second, we prepare a version of the `iris` dataset with binary target variable:
+
+```{r}
+dataset <- iris[, colnames(iris) != "Species"]
+dataset$virginica <- factor(c("no", "yes")[(iris$Species == "virginica") + 1])
+```
+
+The definition of the target variable might be confusing at first sight.
+We first create a Boolean vector by checking the species' name.
+This can also be seen as a vector of zeros and ones, so we can add 1 to get a vector of ones and twos.
+With that, we select from "no" and "yes".
+So you see that it is possible to query multiple, even duplicated, indices from a vector.
+
+To make our code more generic, we define a variable for the prediction target.
+This allows swapping the dataset if we wanted.
+
+```{r}
+target <- "virginica"
+predictionFormula <- as.formula(paste(target, "~ ."))
+```
+
+### a) Baselines (1) - Predict Majority
+
+While the original dataset was balanced between species, the new one is slightly imbalanced:
+
+```{r}
+table(dataset[[target]])
+```
+
+Due to the imbalance, guessing the majority class yields an accuracy higher than zero.
+If the dataset was more imbalanced, we would have the change the evaluation metric altogether.
+
+
+```{r}
+prediction <- rep(names(which.max(table(dataset[[target]]))), times = nrow(dataset))
+cat("Accuracy:", sum(prediction == dataset[[target]]) / nrow(dataset))
+```
+
+(The code is more complicated than it needs to be, but the aim is to create a prediction vector which is consistent with the output of real models.)
+Any proper prediction model should beat that baseline accuracy.
+If a prediction model is significantly worse, something might be wrong with its configuration (e.g., data format).
+Note that we don't do a train-test split here for simplicity reasons.
+However, if classes are imbalanced, splits should be stratified anyway, which means that the proportion of class labels is the same in train and test.
+
+### b) Baselines (2) - One Rules
+
+While guessing the majority class already tells us something about the target variable, it does not use any features.
+By using One Rules, we at least learn which feature is considered best by that model:
+
+```{r}
+library(OneR)
+oneRulesModel <- OneR(formula = predictionFormula, data = dataset)
+summary(oneRulesModel)
+plot(oneRulesModel)
+prediction <- predict(oneRulesModel, newdata = dataset)
+cat("Accuracy:", sum(prediction == dataset[[target]]) / nrow(dataset))
+```
+
+According to `help(OneR)`, the given implementation of One Rules performs equal-width binning of numeric features by default.
+As we know from previous tasks, for this simple dataset, there is a good separability of classes by using individual features.
+However, one still needs to determine a good split point.
+From that perspective, equal-width binning generally seems not optimal.
+The accuracy is quite good in our case, though, as the bin border falls close to a good split point by chance.
+You could also do the binning on your own, for example based on entropy.
+However, in that case, you could also simply learn a decision tree with just one split ("decision stump").
+
+### c) Holdout splits
+
+To test different train-test splits, we simply loop over them and combine the results in a table:
+
+```{r}
+set.seed(25)
+trainFractions <- seq(from = 0.1, to = 0.9, by = 0.05)
+resultsTable <- rbindlist(lapply(trainFractions, function(trainFraction) {
+  trainIdxPerClass <- lapply(unique(dataset[[target]]), function(classLab) {
+    classIdx <- which(dataset[[target]] == classLab)
+    sample(classIdx, size = round(trainFraction * length(classIdx)), replace = FALSE)
+  })
+  trainIdx <- sort(unlist(trainIdxPerClass))
+  testIdx <- c(1:nrow(dataset))[-trainIdx] # use all indices except trainIdx
+  trainData <- dataset[trainIdx, ]
+  testData <- dataset[testIdx, ]
+  model <- rpart(predictionFormula, data = trainData)
+  trainPrediction <- predict(model, newdata = trainData, type = "class")
+  testPrediction <- predict(model, newdata = testData, type = "class")
+  trainAcc <- sum(trainPrediction == trainData[[target]]) / length(trainPrediction)
+  testAcc <- sum(testPrediction == testData[[target]]) / length(testPrediction)
+  return(list(TrainFraction = trainFraction, Train = trainAcc, Test = testAcc))
+}))
+```
+
+`lapply` is our loop over the different split ratios.
+`rbindlist` from the `data.table` package allows to combine a list of lists (with same components) to a table.
+To get a stratified split, we sample the same fraction of train objects from each class independently and combine the results.
+The rest of the code is quite similar to the task on decision trees.
+Now let's plot this:
+
+```{r}
+plotData <- reshape2::melt(resultsTable, id.vars = "TrainFraction",
+                           variable.name = "Split", value.name = "Accuracy")
+ggplot(data = plotData) +
+  geom_line(mapping = aes(x = TrainFraction, y = Accuracy, color = Split)) +
+  scale_x_continuous(breaks = seq(from = 0, to = 1, by = 0.1))
+```
+
+Generally, we expect a model trained with more data (from the same distribution) to make better predictions.
+At the same time, reducing the size of the test set could make performance evaluation slightly unstable.
+As mentioned before, the `iris` data are rather simple to classify.
+Thus, we should not be too surprised to see not much of the expected effects.
+Only with very small training sets, the prediction quality deteriorates.
+
+Though manually creating a split is quite easy, there are also functions for that.
+For example, the `caret` package contains the function `createDataPartition()`.
+`caret` even allows to directly train a huge variety of models with cross-validation, optimize hyper-parameters, store and plot results etc.
+However, this is not the topic of this exercise ;-)
+
+### d) Cross-validation
+
+```{r}
+set.seed(25)
+kValues <- 2:20
+resultsTable <- rbindlist(lapply(kValues, function(k) {
+  folds <- rep(0, times = nrow(dataset))
+  for (classLab in unique(dataset[[target]])) {
+    classIdx <- which(dataset[[target]] == classLab)
+    folds[classIdx] <- sample(rep(1:k, length.out = length(classIdx)), replace = FALSE)
+  }
+  trainPerformances <- rep(0, times = k)
+  testPerformances <- rep(0, times = k)
+  for (i in 1:k) {
+    trainData <- dataset[folds != i, ]
+    testData <- dataset[folds == i, ]
+    model <- rpart(predictionFormula, data = trainData)
+    trainPrediction <- predict(model, newdata = trainData, type = "class")
+    testPrediction <- predict(model, newdata = testData, type = "class")
+    trainPerformances[i] <- sum(trainPrediction == trainData[[target]]) / length(trainPrediction)
+    testPerformances[i] <- sum(testPrediction == testData[[target]]) / length(testPrediction)
+  }
+  return(list(k = k, TrainMean = mean(trainPerformances), TrainSd = sd(trainPerformances),
+              TestMean = mean(testPerformances), TestSd = sd(testPerformances)))
+}))
+```
+
+Determining which data objects goes into which fold is slightly complicated.
+To get a stratified assignment, we repeat the following procedure for each class:
+We create a vector consisting of the values 1 to k in equal proportion (as far as possible, considering divisibility) with `rep()`.
+We bring this vector into random order by applying `sample()` without specifying a `size`.
+We store the result in one vector describing the fold assignment for all data objects, independent from the class.
+As an alternative, with some more effort, we could create a list of train-splits.
+By the way, you could also use `createFolds()` from `caret` for splitting.
+
+For each value of k, we then need to loop over all train-test splits based on the folds.
+Training and prediction remains the same.
+As the number of folds varies between the iterations of the outer loop (loop over k),
+we store mean and standard deviation of train/test performance for each k.
+Now let's plot this:
+
+```{r}
+plotData <- reshape2::melt(resultsTable, id.vars = "k", value.name = "Accuracy")
+plotData$Split <- sub(pattern = "Mean|Sd", replacement = "", x = plotData$variable)
+plotData$Statistic <- sub(pattern = "Train|Test", replacement = "", x = plotData$variable)
+plotData$variable <- NULL
+ggplot(data = plotData) +
+  geom_line(mapping = aes(x = k, y = Accuracy, color = Split)) +
+  facet_grid(Statistic ~ ., scales = "free")
+```
+
+Again, we need to do some reshaping before plotting.
+We use string substitution with very simple regular expressions to get separate columns to identify split and statistic.
+
+In the plots, the standard deviation over folds slightly increases for the test splits, and even more slightly decreases for the train splits.
+This makes sense:
+With growing k, the train split of the dataset becomes bigger, though it already was quite from the start (at least 50%).
+In contrast, the test split gets smaller, down to 5% for 20-fold CV.
+With such small test sets, we expect a higher impact of random fluctuation and thus more volatility in single evaluations.
+However, higher k also mean that we average over more folds at the end, which stabilizes the estimate of accuracy.
+
+In our plots, there also is no trend of mean accuracy over the values of k.
+One could expect an increase with k, as more and more data is used for training.
+However, as we said before, the dataset is quite easy to classify.
+
+Thus, there is no generally best value of k.
+Using five-fold CV usually is equally valid as using leave-one-out CV, where each test split consists only of one data object.
+Of course, the higher k, the more expensive the evaluation becomes.
+Thus, 5 and 10 are typical values for k.
+[Here](https://stats.stackexchange.com/questions/154830/10-fold-cross-validation-vs-leave-one-out-cross-validation) and
+[here](https://stats.stackexchange.com/questions/61783/bias-and-variance-in-leave-one-out-vs-k-fold-cross-validation/244112)
+are two interesting StackExchange posts discussing the choice of k.
+
+### e) Regularization
+
+To learn trees of different complexity, we control the minimum number of data objects required to potentially split a node (`minsplit`).
+Some other options to control complexity are the minimum number of data objects in leaves (`minbucket`), maximum tree height (`maxdepth`)
+or minimum improvement required by splits (`cp`).
+As these different options might interact, we only vary one of them in the following.
+We use 10-fold cross-validation for evaluation.
+
+```{r}
+set.seed(25)
+k = 10
+minSplits <- seq(from = 0, to = 100, by = 5)
+resultsTable <- rbindlist(lapply(minSplits, function(minSplit) {
+  folds <- rep(0, times = nrow(dataset))
+  for (classLab in unique(dataset[[target]])) {
+    classIdx <- which(dataset[[target]] == classLab)
+    folds[classIdx] <- sample(rep(1:k, length.out = length(classIdx)), replace = FALSE)
+  }
+  trainPerformances <- rep(0, times = k)
+  testPerformances <- rep(0, times = k)
+  for (i in 1:k) {
+    trainData <- dataset[folds != i, ]
+    testData <- dataset[folds == i, ]
+    model <- rpart(predictionFormula, data = trainData, control = rpart.control(
+      minsplit = minSplit, minbucket = 0, cp = 0))
+    trainPrediction <- predict(model, newdata = trainData, type = "class")
+    testPrediction <- predict(model, newdata = testData, type = "class")
+    trainPerformances[i] <- sum(trainPrediction == trainData[[target]]) / length(trainPrediction)
+    testPerformances[i] <- sum(testPrediction == testData[[target]]) / length(testPrediction)
+  }
+  return(list(MinSplit = minSplit, Train = mean(trainPerformances), Test = mean(testPerformances)))
+}))
+```
+
+The code is very similar to the last sub-task, where we iterated over values of `k`.
+This time, we fix `k` to ten and iterate over `minSplits`.
+Also, note we adjust the training of decision trees with the `control` parameter.
+
+```{r}
+plotData <- reshape2::melt(resultsTable, id.vars = "MinSplit", variable.name = "Split",
+                           value.name = "Accuracy")
+ggplot(data = plotData) +
+  geom_line(mapping = aes(x = MinSplit, y = Accuracy, color = Split))
+```
+
+By requiring a very small number of data object per node, we can easily improve train accuracy.
+This generally (and also in our case) increases the difference between train and test performance, i.e., overfitting occurs.
+Learning less complex trees could improve generalization, but could also make the model too simple to describe the data.
+In practice, one would usually do a systematic search over the hyper-parameters of the model.
+We kind of do this here, though just for one hyper-parameter.
+In our case, there is no clear trend regarding test performance.
+The least complex trees (i.e., with the biggest minimum node size) seem to loose some prediction performance.
+
+### f) ROC Curve
+
+Back to a simple train-test split, as we want to show just one curve:
+
+```{r}
+set.seed(25)
+trainIdx <- sort(sample(1:nrow(dataset), size = round(0.7 * nrow(dataset)), replace = FALSE))
+testIdx <- c(1:nrow(dataset))[-trainIdx] # use all indices except trainIdx
+trainData <- dataset[trainIdx, ]
+testData <- dataset[testIdx, ]
+model <- rpart(predictionFormula, data = trainData, control = rpart.control(minsplit = 10))
+testPrediction <- predict(model, newdata = testData, type = "prob")
+str(testPrediction)
+```
+
+As you might have noted, we again set `minsplit`.
+We do this to increase the number of nodes in the tree, so the ROC curve gets some more points where it changes its gradient.
+
+When predicting probabilities for `rpart`, we get a matrix with probabilities for each class.
+For creating a ROC curve, we need to decide what the "positive" class is, since the curve is based on true-positive rate and false-positive rate.
+We choose the class `yes` (i.e., object belongs to species "virginica") as positive.
+
+```{r}
+library(ROCR)
+rocrPredObject <- prediction(predictions = testPrediction[, 2],
+    labels = testData[[target]], label.ordering = levels(testData[[target]]))
+rocrPerfObject <- performance(rocrPredObject,"tpr","fpr") # ROC curve
+plot(rocrPerfObject, col = "black", lty = 3, lwd = 3, las = 1)
+abline(0, 1, col = "gray")
+```
+
+The `ROCR` package also allows the creation of other curves, e.g., precision-recall curves.
+You can just pass different performance metrics to be computed.
+
+Computing the AUC also is possible:
+
+```{r}
+performance(rocrPredObject, measure = "auc")@y.values
+```
+Note the `@` notation.
+This is because the object storing the performance is an S4 object.
+In the previous exercises, if an object was returned, it usually belonged to the older S3 object system.
+With S3 objects, you access attributes with the list-like `$` notation.
+
+Note that you need to be careful when determining the positive class.
+If you pass predictions for the wrong class, your plot might look like this:
+
+```{r}
+library(ROCR)
+rocrPredObject <- prediction(predictions = testPrediction[, 1],
+    labels = testData[[target]], label.ordering = levels(testData[[target]]))
+rocrPerfObject <- performance(rocrPredObject,"tpr","fpr") # ROC curve
+plot(rocrPerfObject, col = "black", lty = 3, lwd = 3, las = 1)
+abline(0, 1, col = "gray")
+```
+
+Functionality for `ROC` curves also is part of many other packages, e.g., `ROSE`, `precrec`, `pROC`.
+`ROSE` is easier to use than `ROCR`:
+
+```{r}
+library(ROSE)
+roc.curve(response = testData[[target]], predicted = testPrediction[, 2])
+```
+
+Also, if you pass predictions for the wrong class, they automatically are inverted.
+(Which can also be seen as negative, because it hides programming errors.)
+
+Finally, how do you actually calculate a ROC curve?
+First, you need to order the predicted class probabilities decreasingly.
+Next, for each distinct value from this list, you create a discrete prediction.
+This means you predict "positive" for all data objects which have at least that probability, and "negative" for the rest.
+With that, you can compute true-positive rate and false-positive rate.
+
+```{r}
+ordIdx <- order(testPrediction[, 2], decreasing = TRUE)
+sortedPreds <- data.frame(Prediction = testPrediction[ordIdx, 2],
+                          Target = testData[[target]][ordIdx])
+negative <- levels(testData[[target]])[1]
+positive <- levels(testData[[target]])[2]
+roc.curve(response = testData[[target]], predicted = testPrediction[, 2])
+for (threshold in unique(sortedPreds$Prediction)) {
+  curPreds <- sortedPreds$Target[sortedPreds$Prediction >= threshold]
+  tpr <- sum(curPreds == positive) / sum(sortedPreds$Target == positive) # true positive rate
+  fpr <- sum(curPreds == negative) / sum(sortedPreds$Target == negative) # false positive rate
+  points(x = fpr, y = tpr, pch = 4, lwd = 2, col = "red") # mark on (existing ROC) plot
+  text(x = fpr, y = tpr, labels = round(threshold, 4), cex = 0.7, adj = c(-1, 1))
+  cat(paste0("Threshold of ", round(threshold, 4), " with a TPR of ",
+             round(tpr, 2), " and FPR ", round(fpr, 2), "\n"))
+}
+```
+
+Note that in standard R plotting, you can easily add further elements to the last plot.
+Here, we call `points()` to mark the points at the end of the line segments.
+
+We can see that the curve is rather close to the top-left corner, which means that prediction quality is high.
+To be more specific:
+Consider the objects for which we have predicted a high probability of belonging to the positive class.
+Among these objects, there are many true positives, but only a few false positives.
+Thus, we mainly move in the upwards direction and only slightly to the right.
+With each step of the curve, we lower the prediction threshold.
+This means a higher fraction of actually positive objects are predicted as positive --
+the true-positive rate, i.e., recall increases.
+At the same time, a higher fraction of actually negative objects are also predicted as positive --
+the false-positive rate increases.

@@ -1,0 +1,111 @@
+\documentclass[headinclude,headsepline]{scrartcl}
+
+%packages
+\usepackage[ngerman]{babel} % hyphenation
+\usepackage{scrlayer-scrpage} % header
+\usepackage{hyperref} % links
+\usepackage{paralist} % enumerations
+\usepackage[margin=1.15in]{geometry}
+\usepackage{enumitem} % enumerations
+\usepackage{listings} % code blocks
+\usepackage[usenames,dvipsnames]{xcolor} % color names
+
+%commands
+\ihead{
+	\textbf{Übungsblatt 6}
+}
+\ohead{
+	Analysetechniken für große Datenbestände WS 20/21
+}
+\lstset{ % configure code listings
+	belowcaptionskip=1\baselineskip,
+	language=R,
+	breaklines=true,
+	basicstyle=\footnotesize\ttfamily,
+	commentstyle=\itshape\color{Gray},
+	stringstyle=\color{Orange},
+	keywordstyle=\bfseries\color{OliveGreen},
+	identifierstyle=\color[HTML]{000080},
+	frame=single, % adds a frame around the code
+	frameround=ffff,
+	framerule=0.2pt,
+	backgroundcolor=\color[HTML]{FAFDFF},
+	rulecolor=\color[HTML]{D2ECFE},
+	tabsize=2
+}
+\hypersetup{
+	colorlinks=true, % false: boxed links; true: colored links
+	linkcolor=black, % color of internal links (change box color with linkbordercolor)
+	citecolor=black, % color of links to bibliography
+	filecolor=black, % color of file links
+	urlcolor=blue % color of external links
+}
+\newcommand{\taskcategory}[1]{{\color[HTML]{800000}\emph{(#1)}}}
+\newcommand{\taskname}[1]{\textbf{[#1]}}
+\newcommand{\code}[1]{{\color[HTML]{000080}\texttt{#1}}}
+
+\begin{document}
+
+\section{Qualifikationsaufgabe für das Praktikum Data Science 2021}
+
+Im ILIAS finden Sie eine Präsentation (PDF + Video), welche den Ablauf eines typischen Data-Science-Prozesses erläutert.
+Ziel dieser Aufgabe ist es, Ihr Wissen aus der Vorlesung und den vergangenen Übungen auf ein konkretes Data-Science-Problem anzuwenden.
+Dies ist gleichzeitig die Qualifikationsaufgabe für das Praktikum ``Analyse großer Datenbestände'' im Sommersemester 2021.
+Sie können die Aufgabe natürlich auch lösen, wenn Sie nicht am Praktikum teilnehmen wollen.
+Es wird keine Musterlösung veröffentlicht.
+
+\subsection{Szenario}
+
+Anhand physikalischer und ökonomischer Attribute sollen Sie bestimmen, ob ein Stromnetz  -- zugegebenermaßen ein sehr kleines, also mit nur wenigen Beteiligten -- stabil ist oder nicht.
+Es liegt ein binäres Klassifikationsproblem vor, welches wir mit Matthews Correlation Coefficient\footnote{\url{https://en.wikipedia.org/wiki/Matthews_correlation_coefficient}} auswerten.
+Im ILIAS finden Sie die Daten, aufgeteilt nach Training/Test sowie Attribute/Klassenlabels.
+Das UCI-Repository\footnote{\url{https://archive.ics.uci.edu/ml/datasets/Electrical+Grid+Stability+Simulated+Data+}} bietet eine Beschreibung der Daten und des Szenarios.
+Ihre Aufgabe ist es nun, die Daten zu analysieren und eine Vorhersage für die Testdaten zu erstellen.
+(Logischerweise befinden sich die Klassenlabels für die Testdaten nicht im ILIAS.)
+
+\subsection{Bewertung}
+
+Ihre Lösung wird anhand folgender Kategorien bewertet:
+
+\begin{compactenum}
+	\item
+	Methodische Qualität, also Einsatz geeigneter Data-Science-Techniken und Interpretation der Ergebnisse.
+	\item
+	Qualität des Codes.
+	\item
+	Qualität der Vorhersage, wobei eine gute Lösung ausreichend ist.
+	(Sie müssen Ihre Modelle nicht bis zur letzten Nachkommastelle tunen; die Pipeline sollte maximal innerhalb weniger Minuten auf einem Standard-Notebook durchlaufen.)
+	\item
+	Reproduzierbarkeit der Ergebnisse und Einhalten des Abgabeformats.
+\end{compactenum}
+
+\subsection{Abgabeformat}
+
+\textbf{
+	Abgabefrist ist der 14.03.2021.
+	Das Abgabeobjekt befindet sich im ILIAS.
+	Die Aufgabe muss selbstständig gelöst werden.
+}
+Geben Sie drei Dateien ab: Ein Notebook mit dem Code, eine HTML-Version des Notebooks inklusive aller Ausgaben und eine Vorhersagedatei.
+Verwenden Sie die Dateinamen \code{VORNAME\_NACHNAME\_solution.Rmd} (bzw. \code{.ipynb}), \code{VORNAME\_NACHNAME\_output.html} und \code{VORNAME\_NACHNAME\_prediction.csv}.
+
+Sie können R oder Python verwenden, jeweils in der aktuellsten Version.
+Nutzen Sie ein \code{Rmarkdown}- oder ein \code{Jupyter}-Notebook, welches sämtlichen Code und Ihre Interpretation der Ergebnisse enthält.
+Versehen Sie komplizierte Code-Passagen mit Kommentaren.
+Entfernen Sie Code, welcher nicht funktioniert oder dessen Ergebnisse Sie nicht interpretieren.
+Das Notebook soll am Ende natürlich die Vorhersagedatei erzeugen, aber zuvor auch andere Schritte eines Data-Science-Prozesses durchlaufen.
+Zum Bestehen der Aufgabe sollten folgende Elemente enthalten sein:
+
+\begin{compactenum}
+	\item Exploration mit Statistiken und/oder Plots
+	\item Erstellen neuer Features
+	\item Vergleich von einer Baseline, einem einfachen Vorhersagemodell und einem komplizierten Vorhersagemodell
+\end{compactenum}
+
+Das Notebook soll ohne manuelle Intervention vollständig und fehlerfrei ausführbar sein, also mittels ``Run all'' o.ä.
+Sofern notwendige Pakete über \code{CRAN} (R), \code{pip} (Python) oder \code{conda} (Python) verfügbar sind, müssen Sie keine expliziten Installationsanweisungen in Ihr Notebook einfügen.
+Ihr Code soll die Eingabedateien aus einem Ordner \code{data/} lesen, welcher sich im selben Ordner wie Ihr Notebook befindet.
+Die Vorhersagedatei soll ebenfalls im Ordner \code{data/} abgespeichert werden.
+Die Vorhersagedatei soll dasselbe Format wie die Datei mit den Klassenlabels der Trainingsdaten haben,
+also eine CSV-Datei mit einer Spalte, dem Spaltennamen in der ersten Zeile und keinen Anführungszeichen um die Werte.
+\end{document}

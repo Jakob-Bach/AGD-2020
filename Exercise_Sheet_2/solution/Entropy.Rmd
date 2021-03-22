@@ -1,0 +1,230 @@
+---
+title: "Exercise 2 of \"Big Data Analytics\" (Winter Semester 2020/21)"
+output: html_notebook
+---
+
+# Task 3: Entropy
+
+To make our code more generic, we define variables for the dataset and the prediction target.
+This allows swapping the dataset if we wanted.
+
+```{r}
+dataset <- iris
+target <- "Species"
+```
+
+## a) Split Entropy for Attribute
+
+Here is the implementation of the split entropy function:
+
+```{r}
+splitEntropy <- function(x, y, splitPoint) {
+  # Get indices of values left and right from splitPoint
+  idx.s1 <- which(x <= splitPoint)
+  idx.s2 <- which(x > splitPoint)
+  # Get estimates for the probability of class labels
+  prob.s1 <- table(y[idx.s1]) / length(idx.s1)
+  prob.s2 <- table(y[idx.s2]) / length(idx.s2)
+  # Compute both entropies (corner case: if prob = 0, then entropy = 0)
+  entropy.s1 <- -sum(ifelse(prob.s1 > 0, prob.s1 * log2(prob.s1), 0))
+  entropy.s2 <- -sum(ifelse(prob.s2 > 0, prob.s2 * log2(prob.s2), 0))
+  # Return entropy of split
+  if (length(idx.s1) == 0) { # splitPoint less than all values in x
+    return(entropy.s2)
+  }
+  if (length(idx.s2) == 0) { # splitPoint greater than/equal to all values in x
+    return(entropy.s1)
+  }
+  return((length(idx.s1)*entropy.s1 + length(idx.s2)*entropy.s2) / length(y))
+}
+```
+
+Note that we do not need any loops, but rely on vectorized operations.
+We first find out to which part of the split each data object belongs.
+Second, we count the occurrence of class labels in each split with the `table()` function.
+Third, we compute the entropy in each split.
+Note that some class labels might not occur in a split, in which case we would have to compute the logarithm of 0.
+In entropy computation, we can set $0*log_2(0) := 0$.
+Forth, we weight the entropies of each split with the number of data objects in the split.
+
+Let's try our test cases.
+We should not directly compare for equality because we use floating-point operations.
+With floats, there always is the possibility of small numerical differences (not specific to R).
+Thus, we compute the differences between actual and expected values and check if they are reasonably small.
+
+```{r}
+x <- 1:5
+y <- factor(c(1, 1, 1, 0, 0))
+differences <- c(
+  splitEntropy(x, y, 0) - -sum(c(3/5, 2/5)*log2(c(3/5, 2/5))),
+  splitEntropy(x, y, 2.5) - -3/5*sum(c(1/3, 2/3)*log2(c(1/3, 2/3))),
+  splitEntropy(x, y, 3.5) - 0
+)
+stopifnot(all(abs(differences) < 1e-10))
+```
+
+Looks good, the `stopifnot` assertion statement didn't crash, which means we passed the test.
+By the way, you can also write proper unit tests with the `testthat` package:
+
+```{r}
+library(testthat)
+test_that("Entropy computation works", {
+  x <- 1:5
+  y <- factor(c(1, 1, 1, 0, 0))
+
+  expect_equal(splitEntropy(x, y, 0), -sum(c(3/5, 2/5)*log2(c(3/5, 2/5))))
+  expect_equal(splitEntropy(x, y, 2.5), -3/5*sum(c(1/3, 2/3)*log2(c(1/3, 2/3))))
+  expect_equal(splitEntropy(x, y, 3.5), 0)
+})
+```
+
+This does not have many benefits in our small example, apart from some numerical tolerance when comparing floats.
+`testthat` is quite helpful when having a larger code base.
+E.g., when writing a package, you can simply run all tests of the package.
+
+## b) Split Entropy for Dataset
+
+Again, let's have a look at the implementation right away:
+
+```{r}
+splitEntropyForData <- function(dataset, target) {
+  # Initialize result
+  result <- list()
+  # For each attribute (i.e., all columns except the target) ...
+  for (attribute in setdiff(colnames(dataset), target)) {
+    # Get all possible split values
+    splits <- sort(as.numeric(unique(dataset[, attribute])))
+    # Compute entropy for each split
+    entropies <- sapply(splits, FUN = splitEntropy, x = dataset[, attribute],
+                        y = dataset[, target])
+    # Store result
+    curr.result <- cbind(splits, entropies) # create matrix
+    colnames(curr.result) <- c("Split", "Entropy")
+    result[[attribute]] <- curr.result
+  }
+  return(result)
+}
+```
+
+We have two loops, one over attributes (`for`) and one over split points (`sapply`).
+Note that we don't want to compute splits for the target variable itself, so we exclude it with the `setdiff()` function.
+As split points, we use all values occurring in an attribute.
+Another possibility would be to use all points in the middle between two attribute values.
+With `unique()`, we remove duplicate values.
+The task doesn't define the structure of the result.
+We decided to create a list with one component for each attribute.
+Each component stores a matrix of split points and entropies.
+This will be useful once we start plotting.
+
+## c) Plot
+
+Given our function definition, computing all split entropies is very easy:
+
+```{r}
+dataSplitEntropy <- splitEntropyForData(dataset, target = target)
+str(dataSplitEntropy)
+```
+
+We can use default R plot functionality:
+
+```{r}
+par(mfrow = c(2,2)) # multiple plots in a grid
+for (attribute in names(dataSplitEntropy)) {
+  plotData <- data.frame(dataSplitEntropy[[attribute]])
+  plot(x = plotData$Split, y = plotData$Entropy, main = attribute,
+       xlab = "Split", ylab = "Entropy", type = "l")
+  abline(v = plotData[which.min(plotData$Entropy), "Split"], col = "red")
+}
+par(mfrow = c(1,1))
+```
+
+As we have multiple attributes, we create a grid with sub-plots to show all results at the same time.
+We mark the split point resulting in the lowest entropy with a vertical red line.
+As we can see, the extreme values of each attribute are associated with high split entropy.
+This makes sense, as these split points would only separate a few data objects.
+Even if this small set was quite pure regarding the class distribution,
+the remaining larger set would still contain objects from all classes in roughly equal proportion.
+For each attribute, the minimum split entropy is considerably smaller than the maximum split entropy.
+However, even the minimum is far from the theoretical optimum of zero.
+As we have three classes, and one split can only separate one class from the two others, this is expected.
+
+Alternatively, we could also use `ggplot2`:
+
+```{r}
+library(ggplot2)
+plots <- lapply(names(dataSplitEntropy), function(attribute) {
+  plotData <- data.frame(dataSplitEntropy[[attribute]])
+  ggplot(data = plotData) +
+    geom_line(mapping = aes(x = Split, y = Entropy)) +
+    geom_vline(xintercept = plotData[which.min(plotData$Entropy), "Split"], color = "red") +
+    labs(title = attribute)
+})
+gridExtra::grid.arrange(grobs = plots, nrow = 2, ncol = 2)
+```
+
+Here, we need the `gridExtra` package to combine plots into a grid.
+
+## d) Split Finding
+
+The best split is the split which results in the lowest entropy.
+The general idea is to compute the lowest entropy for each attribute first and then the global minimum over that.
+To show you some more R functionality, we don't simply solve this with loops (or their vectorized alternatives) over our result list,
+but combine the results in one `data.frame`.
+
+
+```{r}
+splitTable <- data.frame(Attribute = names(dataSplitEntropy)[1], dataSplitEntropy[[1]])
+for (attribute in names(dataSplitEntropy)[-1]) {
+  splitTable <- rbind(splitTable, data.frame(Attribute = attribute,
+                                             dataSplitEntropy[[attribute]]))
+} # combine all split and entropy values in one table
+str(splitTable)
+```
+
+Next, we can compute the minimum per attribute and the global minimum, together with its split attribute and split point.
+
+```{r}
+aggregate(Entropy ~ Attribute, splitTable, min)  # min entropy for each attribute
+bestSplitAttribute <- as.character(splitTable[which.min(splitTable$Entropy), "Attribute"])
+bestSplitPoint <- splitTable[which.min(splitTable$Entropy), "Split"]
+bestSplitAttribute
+bestSplitPoint
+splitEntropy(x = dataset[, bestSplitAttribute], y = dataset[[target]], splitPoint = bestSplitPoint)
+```
+
+`data.frame`s don't have a nice group-by functionality, though we can use the `aggregate()` function.
+Looking back to exercise 1, task 3 b), the split point seems to be capable of separating the species `setosa` from the other two species.
+In fact, this can be achieved with both `Petal.Length` and `Petal.Width`.
+In contrast, classes are less separated for the other two attributes.
+Thus, their optimal split entropy is higher.
+
+As an alternative to `data.frame`, we could also use `data.table`, which extends basic `data.frame`s, but also changes the syntax of some of the existing operations.
+
+```{r}
+library(data.table)
+splitTable <- rbindlist(lapply(names(dataSplitEntropy), function(attribute) {
+  return(cbind(Attribute = attribute, data.table(dataSplitEntropy[[attribute]])))
+})) # combine all split and entropy values in one table
+str(splitTable)
+```
+
+As you just saw, we can easily combine a list of `data.table`s with `rbindlist`.
+
+```{r}
+splitTable[, .(Entropy = min(Entropy)), by = Attribute] # min entropy for each attribute
+splitTable[, .(Split = Split[Entropy == min(Entropy)]), by = Attribute] # split with min entropy for each attribute
+bestSplitAttribute <- splitTable[which.min(Entropy), Attribute]
+bestSplitPoint <- splitTable[which.min(Entropy), Split]
+bestSplitAttribute
+bestSplitPoint
+splitEntropy(x = dataset[, bestSplitAttribute], y = dataset[[target]], splitPoint = bestSplitPoint)
+```
+
+Here, we can get the min entropy per attribute without `aggregate()`.
+The `.(Entropy = ...)` construct basically means `SELECT ... AS Entropy`.
+We could also write `splitTable[, min(Entropy), by = Attribute] `, which would rename `Entropy` to `V1` after aggregation.
+We can even get the split where entropy is minimal for each attribute.
+This is quite powerful, though it looks strange in the beginning.
+Note we don't need to quote column names.
+Furthermore, we only need to write the name `splitTable` once per statement,
+and the column names are automatically evaluated in the context of that `data.table`.

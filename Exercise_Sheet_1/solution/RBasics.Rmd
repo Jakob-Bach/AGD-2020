@@ -1,0 +1,215 @@
+---
+title: "Exercise 1 of \"Big Data Analytics\" (Winter Semester 2020/21)"
+output: html_notebook
+---
+
+# Task 2: Descriptive Statistics and R Basics
+
+## a) Tutorial
+
+The code for the R tutorial can be found in the file `Tutorial.R`.
+
+## b) Standard deviation (1)
+
+In case you forgot it, the formula for the sample standard deviation is $\sqrt{\frac{1}{n-1}\sum_{i=1}^n (x_i - \bar{x})^2}$.
+The implementation is trivial and does not need any comments ;-)
+
+```{r}
+stddev <- function(x, population = FALSE) {
+  stopifnot(!any(is.na(x)))
+  n <- length(x)
+  result <- 0
+  average <- mean(x)
+  for (value in x) {
+    result <- result + (value - average)^2
+  }
+  if (population) {
+    result <- result / n
+  } else {
+    result <- result / (n - 1)
+  }
+  result <- sqrt(result)
+  return(list(result = result, n = n))
+}
+```
+
+Okay, still some comments, as this might be your first function ever in R:
+Though the task says something about parameter types, there are no type specifications in R.
+If you wanted, you could use the `class()` function to dynamically check types and throw an exception if something inappropriate is passed.
+We don't do this here.
+However, as required by the task, we check for `NA`s.
+Fortunately, the function `is.na()` is vectorized, so we don't need to loop over `x`.
+We just use `any()` to aggregate the resulting Boolean vector.
+`!` is the Boolean negation.
+The function `stopifnot()` basically allows to write `assert` statements, which throw an exception if violated.
+Also, note that we provide a default value for the parameter `population`, so the user does not need to specify it in the method call.
+The implementation of the formula itself is quite similar to other programming languages, apart from minor syntactic differences.
+For computing the mean, we use the built-in function instead of another loop.
+Using a `list` allows returning multiple values.
+Note that you don't need to (but you can, if you want) quote the names of the list components when creating the list, which might be confusing for beginners.
+
+## c) Standard deviation (2)
+
+First, let us test how our function handles `NA`s.
+
+```{r, error=TRUE}
+print(stddev(c(1, NA, 2)))
+```
+
+Well, this is what we expected.
+By the way, the built-in function either returns `NA` or removes `NA`s.
+
+```{r}
+print(sd(c(1, NA, 2)))
+print(sd(c(1, NA, 2), na.rm = TRUE))
+```
+
+Let's write a "loop" which compares our function to the built-in one:
+
+```{r}
+differences <- sapply(1:100, function(i) {
+  n <- runif(n = 1, min = 2, max = 100) # randomize vector length
+  sd <- abs(rnorm(1)) # randomize target standard deviation
+  x <- rnorm(n = n, sd = sd)
+  return(sd(x) - stddev(x, population = FALSE)[["result"]])
+})
+```
+
+Generating random numbers of a pre-defined distribution is really easy in R.
+In fact, we first choose the vector length uniformly random.
+Next, we randomly determine the standard deviation of our random vector.
+After generating the normally distributed vector, we finally compute the difference.
+Since our function returns a list, we need to extract the component containing the standard deviation.
+Also, as `sd()` computes the sample standard deviation, we do the same by setting `population` to `FALSE`.
+Else, it would be obvious that our function returns a different result.
+Instead of a loop, we use the `sapply()` function.
+It takes a vector/list and a function and applies the latter to each element of the former.
+In the past, the `apply` functions were also much faster than loops, but that isn't true anymore.
+Anyway, they are still often used for loops when the iterations are independent from each other.
+Note that the passed function does not need to be pre-defined (though it could be), bu you can directly pass a new anonymous function.
+
+We should have a look at the resulting vector:
+
+```{r}
+print(summary(differences))
+hist(differences)
+```
+
+Looks good, there are only minor numerical differences, which can always occur in floating-point operations.
+By the way, if you repeatedly run the code, results change slightly, because of the random number generation.
+Use `set.seed()` to initialize the RNG in a reproducible manner.
+
+## d) Standard deviation (3)
+
+We first implement the vectorized version of the function.
+This also makes the function more readable (as least if you are used to R / thinking in vectors):
+
+```{r}
+stddev_vectorized <- function(x, population = FALSE) {
+  stopifnot(!any(is.na(x)))
+  n <- length(x)
+  average <- mean(x)
+  result <- sum((x - average)^2)
+  if (population) {
+    result <- result / n
+  } else {
+    result <- result / (n - 1)
+  }
+  result <- sqrt(result)
+  return(list(result = result, n = n))
+}
+```
+
+Here comes the benchmark:
+
+```{r}
+library(microbenchmark)
+x <- rnorm(10000)
+print(microbenchmark(sd(x), stddev(x), stddev_vectorized(x), times = 1000))
+```
+
+Our vectorized function is clearly better than the loop-based one, but worse than the built-in one.
+Key take-away:
+Avoid writing loops in R for fast-running, low-level code.
+Always search if there is a vectorized alternative.
+The built-in functions are partly implemented in C and Fortran, so they are way better in number crunching.
+You can also easily use code from other languages in R on your own.
+For example, the `Rcpp` package enables integration of C++ code and also has a lot of syntactic sugar to represent R data structures like vectors or lists in C++ code.
+
+## e) Plots (1)
+
+We first get an overview of the [`iris` dataset](https://en.wikipedia.org/wiki/Iris_flower_data_set).
+We don't need to load the dataset explicitly, as it is part of the `datasets` package, which is pre-loaded by default.
+
+```{r}
+summary(iris)
+```
+
+There are four numeric attributes describing the flower and one categorical attribute containing the name of the species.
+
+Using the built-in plot functionality is straightforward.
+In fact, if you don't want additional styling, you just need to pass the attribute(s) you want to plot.
+
+```{r}
+hist(iris$Sepal.Length, breaks = 10)
+```
+
+In the histogram, `breaks` can also be a vector of break points.
+For example, you can use `seq()` to create equal-width bins.
+If you just pass the number of bins, according to `help(hist)`, "the number is a suggestion only; as the breakpoints will be set to `pretty` values".
+Indeed, R has a function `pretty()` to compute breakpoints.
+
+```{r}
+boxplot(iris$Sepal.Length)
+```
+
+```{r}
+plot(iris$Sepal.Length, iris$Sepal.Width, col = iris$Species, pch = 16,
+     main = "Sepal - Length vs Width", xlab = "Length", ylab = "Width")
+```
+
+For the scatter plot, we add some styling.
+`pch` (plot character) denotes the symbol used for the points.
+Only some of the symbol types are filled, for others just the outline is colored.
+Note that `col` does not denote a specific color here, but rather the vector which should determine how to color.
+You could also transform the categories into your color names of choice and then pass the actual coloring.
+
+## f) Plots (2)
+
+`gpplot2` might look slightly more complicated at the beginning, but actually is well structured.
+Also, we again add some styling, so the code naturally becomes longer.
+
+```{r}
+library(ggplot2)
+ggplot(data = iris) +
+  geom_histogram(mapping = aes(x = Sepal.Length), fill = "#FFDAB9", color = "black",
+                 bins = 10)
+```
+
+Here, the histogram takes our number of bins at face value instead of creating a more pretty number.
+`geom_histogram()` also allows to specify break points with the argument `breaks`.
+Note the difference between `fill` and `color`:
+The former is used for areas, the latter for the outline.
+You can specify colors by name and RGB code.
+
+```{r}
+ggplot(data = iris) +
+  geom_boxplot(mapping = aes(y = Sepal.Length), color = "maroon", fill = "salmon") +
+  theme_bw() # remove gray background
+```
+
+```{r}
+ggplot(data = iris) +
+  geom_point(mapping = aes(x = Sepal.Length, y = Sepal.Width, color = Species)) +
+  theme(legend.position = "bottom") +
+  scale_color_brewer(palette = "Dark2") +
+  ggtitle("Sepal - Length vs Width") +
+  xlab("Length") +
+  ylab("Width")
+```
+
+In the scatter plot, note the `color` is now within `aes()`.
+This means it is not set to a fixed value, but depends on the data.
+By calling a `scale_color_...()` function, you can provide the color mapping.
+For example, [Color Brewer](https://colorbrewer2.org/) has some nice color schemes.
+`scale_color_manual()` allows to create an arbitrary mapping with your colors of choice.

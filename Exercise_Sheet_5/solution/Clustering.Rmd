@@ -1,0 +1,371 @@
+---
+title: "Exercise 5 of \"Big Data Analytics\" (Winter Semester 2020/21)"
+output: html_notebook
+---
+
+# Task 2: Clustering
+
+## a) Visualization
+
+According to `help(faithful)`, the dataset contains eruptions and waiting times of the [geyser Old Faithful](https://en.wikipedia.org/wiki/Old_Faithful).
+
+```{r}
+summary(faithful)
+```
+
+Clustering algorithms are usually based on distance computations.
+If attributes are scaled differently, distance computations are biased towards the attributes with the bigger ranges.
+We noted a similar phenomenon for PCA.
+Thus, we should normalize the data:
+
+```{r}
+dataset <- data.frame(scale(faithful))
+```
+
+Now we plot the data:
+
+```{r}
+library(ggplot2)
+ggplot(data = dataset) +
+  geom_point(mapping = aes(x = eruptions, y = waiting)) +
+  coord_fixed() # uniform axis scaling
+```
+
+Looks like there are two roughly spherical (or elliptical) clusters.
+This is a comparatively easy situation for many standard clustering algorithms.
+
+## b) Partitioning Clustering & c) Silhouette Coefficient
+
+To avoid repetition of code, we combine sub-tasks b) and c).
+Before we systematically evaluate different values of $k$, we first see how clustering and silhouette computation work:
+
+```{r}
+kmeansResult <- kmeans(dataset, centers = 2, nstart = 5)
+str(kmeansResult)
+```
+
+We don't need to load a package for `kmeans()`.
+It's part of the standard package `stats`.
+We use the parameter `nstart`, because k-means depends on the initialization of its centroids.
+Repeating (re-starting) the procedure multiple times makes the result more stable.
+For guaranteed reproducibility, we could initialize the random-number generator with `set.seed()`.
+
+The result object stores cluster assignments, cluster centers, and some statistics.
+"ss" means "sum of squares".
+The objective of k-means is minimizing the sum of squared Euclidean distances of points to their corresponding cluster centers.
+
+Let's compute the silhouette coefficient:
+
+```{r}
+distObject <- dist(dataset)
+silhResult <- cluster::silhouette(x = kmeansResult$cluster, dist = distObject)
+str(silhResult)
+summary(silhResult)
+```
+
+The silhouette coefficient does not only depend on cluster assignments, but also distances between points.
+The `dist()` function computes a distance matrix (though it is stored as one-dimensional `dist` object).
+Multiple distance measures are supported, the default is the Euclidean distance.
+We can see that the silhouette function does not return an overall silhouette value, but one for each point.
+In contrast, the `summary()` function also provides aggregates.
+We can also simply compute the mean on our own:
+
+```{r}
+mean(silhResult[, "sil_width"])
+```
+
+Furthermore, there is a built-in plot functionality:
+
+```{r}
+plot(silhResult, border = NA)
+```
+
+Maybe not the best layout, but at least we get a plot.
+`border = NA` prevents rendering issues in RStudio.
+The original paper introducing silhouette proposed this graphical representation.
+(Rousseeuw (1987): "Silhouettes: a graphical aid to the interpretation and validation of cluster analysis")
+The plot shows the silhouette values of all points, ordered by cluster first and by silhouette value second.
+Positive values mean that the average distance of a point to all objects in the same cluster
+is higher than the average distance of that point to the second-nearest cluster.
+Thus, negative values are bad, as they indicate that the point is closer to another cluster than its own cluster.
+Here, we don't have any negative values.
+
+Now, for evaluating different values of $k$, we use a loop to:
+
+- conduct clustering
+- compute the silhouette coefficient
+- plot the clustering result
+
+```{r}
+kValues <- 2:5
+distObject <- dist(dataset)
+for (k in kValues) {
+  kmeansResult <- kmeans(dataset, centers = k, nstart = 5)
+  silhResult <- cluster::silhouette(x = kmeansResult$cluster, dist = distObject)
+  clusterAssignmentData <- cbind(dataset, cluster = as.factor(kmeansResult$cluster))
+  clusterCenterData <- cbind(data.frame(kmeansResult$centers), cluster = as.factor(1:k))
+  print(
+    ggplot(mapping = aes(x = eruptions, y = waiting, col = cluster)) +
+      geom_point(data = clusterAssignmentData) +
+      geom_point(data = clusterCenterData, shape = 23, size = 3, fill = "black") +
+      theme_bw() + # black-and-white theme
+      theme(legend.position = "none") + # disable legend
+      coord_fixed() + # uniform axis scaling
+      ggtitle(paste0("k = ", k, ", silhouette = ", round(mean(silhResult[, "sil_width"]), digits = 2)))
+  )
+}
+```
+
+To display results from within loops, we need to call the `print()` function explicitly.
+Also, note that we can plot different datasets in one plot
+(i.e., there are two calls to `geom_point()`):
+Here, we plot the original points as well as the cluster centers.
+
+As we assumed, using two clusters yields the most intuitive results on the plots.
+One might object against outlier points (e.g., those in the middle between the clusters) being also assigned to clusters,
+but most clustering algorithms do that.
+
+Computationally, two clusters result in the highest value of the silhouette coefficient.
+Thus, silhouette coefficient, and also other measures for cluster quality, can help to determine parameters of clustering algorithms.
+Of course, this assumes the clustering quality measure is aligned to the objective of the clustering algorithm.
+In that regard, silhouette coefficient and k-means are a suitable combination.
+
+With higher k, the existing clusters are split up into roughly spherical, roughly equal-sized clusters.
+This is related to the objective function of k-means.
+Thus, if clusters have a different shape, then k-means is not suitable.
+
+## d) Hierarchical Clustering
+
+For hierarchical clustering, we need to pass a `dist` object.
+This has the advantage that we can swap the distance metric, which isn't possible for k-means.
+
+```{r}
+hclustResult <- hclust(d = dist(dataset), method = "single")
+str(hclustResult)
+```
+
+The result object represents the dendrogram in numerical form.
+Thus, it also allows to determine in which order clusters should be merged to get cluster assignments.
+The parameter `method` describes the linkage criterion, i.e., how should the distance between clusters be computed:
+Average distance between data objects, minimum/maximum distance between data objects etc.
+This can have a great effect on clustering results.
+For example, with "single" (minimum), a small chain of points between otherwise well-defined clusters can result in their merge.
+In our dataset, which is rather well behaving, the choice of `method` does not have a big impact.
+
+We can directly plot the results to get a dendrogram, though the default plot is quite ugly:
+
+```{r}
+plot(hclustResult)
+```
+
+To get fixed cluster assignments, we need to cut the dendrogram at a certain height.
+Fortunately, we can use the function `cutree()`, where we just specify the target number of clusters:
+
+```{r}
+clusterAssignments <- as.factor(cutree(hclustResult, k = 2))
+ggplot(data = cbind(dataset, cluster = clusterAssignments)) +
+  geom_point(mapping = aes(x = eruptions, y = waiting, col = cluster)) +
+  theme_bw() +
+  coord_fixed() # uniform axis scaling
+```
+
+The result looks good and is quite similar to k-means, comparing the plots.
+This might be related to the simplicity of the dataset, making it easy for different clustering algorithms to yield a similar result.
+For other datasets, results between clustering algorithms might vary more.
+
+As a side-note:
+Though we just made a visual comparison to k-means, there are also formal measures to compare clusterings.
+These are so-called external validity indices.
+In contrast, the silhouette coefficient is an internal validity index, as it evaluates one clustering.
+
+By the way, the hierarchical clustering obtained above was agglomerative (bottom-up).
+`cluster::diana()` provides a divisive (top-down) approach.
+
+## e) Density-based Clustering (1)
+
+Let's start DBSCAN with some random parameter values right away:
+
+```{r}
+library(dbscan)
+dbscanResult <- dbscan(x = dataset, eps = 0.1, minPts = 5)
+dbscanResult
+str(dbscanResult)
+```
+
+Running DBSCAN is equally simple as other clustering techniques.
+However, choosing its parameters, in particular `eps`, is quite tricky.
+For example, here we have produced a lot of noise points.
+
+```{r}
+ggplot(data = cbind(dataset, cluster = as.factor(dbscanResult$cluster))) +
+  geom_point(mapping = aes(x = eruptions, y = waiting, col = cluster)) +
+  theme_bw() +
+  coord_fixed() + # uniform axis scaling
+  scale_color_manual(values = c("gray", scales::hue_pal()(max(dbscanResult$cluster))))
+```
+
+The call to `scale_color_manual()` might look a bit strange, but what we are basically doing
+is using gray for the noise cluster and the default `ggplot2` colors for the rest.
+In our plot, we see the high amount of noise points.
+Also, the true clusters are split up into multiple sub-clusters, due to our density settings.
+
+In general, the silhouette coefficient is not a good measure for density-based clustering.
+As we noted before, silhouette considers distances within clusters and between clusters.
+In contrast, density-based clustering finds clusters of arbitrary shape, as long as they meet the density requirements.
+However, in our case, we know that the silhouette coefficient is able to describe the true clusters in the data quite well.
+Thus, we can use silhouette to search for a good parametrization of DBSCAN:
+
+```{r}
+bestEps <- NA
+bestMinPts <- NA
+bestSil <- -Inf
+distObject <- dist(dataset)
+for (eps in 0.01 * 2^(1:20)) {
+  for (minPts in 1:10) {
+    dbscanResult <- dbscan(x = dataset, eps = eps, minPts = minPts)
+    if (!all(dbscanResult$cluster == dbscanResult$cluster[1])) {
+      silObject <- cluster::silhouette(x = dbscanResult$cluster, dist = distObject)
+      sil <- mean(silObject[, "sil_width"])
+      if (sil > bestSil) {
+        bestSil <- sil
+        bestEps <- eps
+        bestMinPts <- minPts
+      }
+    }
+  }
+}
+```
+
+The approach we use is called grid search:
+We define a range of interesting values for each hyper-parameter and then search over all combinations.
+We use a linear range for `minPts` and an exponential range for `eps`.
+Here, we treat all noise points as belonging to the same cluster.
+As widespread noise clusters will result in bad silhouette values, we thereby hope to reduce the number of noise points altogether.
+We also need to handle the case that the silhouette is undefined, which happens if all points are in one cluster
+(may it be noise, may it be a regular cluster).
+We just ignore these cases.
+
+```{r}
+dbscanResult <- dbscan(x = dataset, eps = bestEps, minPts = bestMinPts)
+ggplot(data = cbind(dataset, cluster = as.factor(dbscanResult$cluster))) +
+  geom_point(mapping = aes(x = eruptions, y = waiting, col = cluster)) +
+  theme_bw() +
+  coord_fixed() + # uniform axis scaling
+  scale_color_manual(values = c("gray", scales::hue_pal()(max(dbscanResult$cluster))))
+```
+
+Quite good!
+We get two clusters and a few outlier points.
+
+By the way, DBSCAN also has a built-in cluster plotting functionality:
+
+```{r}
+hullplot(dataset, cl = dbscanResult$cluster)
+```
+
+And you can plot the distances to the nearest neighbors:
+
+```{r}
+kNNdistplot(x = dataset, k = 5)
+```
+
+This might be used to define the hyper-parameters.
+First, choose a value for `minPts`.
+Next, plot the distances to the `minPts` nearest neighbors.
+Distances where the graph suddenly increases might be good values for `eps`.
+However, this is a rather fuzzy definition.
+
+## f) Density-based Clustering (2)
+
+For OPTICS, we only need to specify `minPts`.
+We could also provide an upper bound for `eps` to speed up computation, but our dataset is small anyway.
+By default, the largest distance to a `minPts` neighbor is used.
+
+```{r}
+opticsResult <- optics(x = dataset, minPts = 5)
+opticsResult
+str(opticsResult)
+```
+
+The results object is more complex than for DBSCAN, as it stores point order, reachability distances, core distances and the predecessors of the points.
+With that rich information, we can create a reachability plot:
+
+```{r}
+plot(opticsResult)
+abline(h = 0.4, col = "red")
+```
+
+This helps to determine a suitable `eps`.
+With a value of 0.4, we should get two large clusters, which are separated by a high reachability distance:
+
+```{r}
+dbscanResult <- extractDBSCAN(opticsResult, eps_cl = 0.4)
+ggplot(data = cbind(dataset, cluster = as.factor(dbscanResult$cluster))) +
+  geom_point(mapping = aes(x = eruptions, y = waiting, col = cluster)) +
+  theme_bw() +
+  coord_fixed() + # uniform axis scaling
+  scale_color_manual(values = c("gray", scales::hue_pal()(max(dbscanResult$cluster))))
+```
+
+Well, that worked out as intended.
+So, by using OPTICS, we found a good value of `eps` for a given value of `minPts`.
+As we crossed two vertical bars in the plot, we actually have three clusters.
+One cluster does not contain enough points and thus is labeled as noise.
+
+## g) Mixture Models
+
+`MClust()` has two main hyper-parameters:
+The number of "components" (clusters) `G` and the model type `modelNames`.
+Let's try 2 to 10 mixture components.
+`mclust` optimizes the hyper-parameters according to the Bayesian Information Criterion (BIC).
+BIC is a general measure evaluating the likelihood of a model (given the data), but penalizing model complexity.
+For example, in our case, using more clusters makes the model more complex, since more parameters (means, variances) have to be fitted.
+
+```{r}
+library(mclust)
+mclustResult <- Mclust(dataset, G = 1:10, verbose = FALSE)
+str(mclustResult)
+```
+
+WTF?
+Okay, this is a complex result.
+We have information about the original data, BIC values, final parameters, cluster assignments (`classification`) and more.
+Let's have a look at the summary:
+
+```{r}
+summary(mclustResult)
+```
+
+Looks more useful.
+The algorithm decided on three clusters.
+Also, it chose a "ellipsoidal, equal volume, shape and orientation" model.
+This is related to the covariance matrix of the fitted distribution.
+For example, are clusters axis-parallel, do they have different size etc.
+For more details, you can read the article Scrucca (2016) "mclust 5: clustering, classification and density estimation using Gaussian finite mixture models."
+The model stores its parameters, which are means and (co)variances:
+
+```{r}
+str(mclustResult$parameters)
+```
+
+You can also get information about the BIC used for selecting the model:
+
+```{r}
+summary(mclustResult$BIC)
+```
+
+Okay, enough complicated stuff for today.
+Let's finish with a plot:
+
+```{r}
+plot(mclustResult, what = "classification")
+```
+
+Well, not optimal.
+In particular, one of our actual clusters in the data is bigger than the other, so `Mclust` choosing "equal volume" results in splitting up this cluster.
+
+```{r}
+plot(mclustResult, what = "BIC")
+```
+
+Apparently, it was a tough race between two and three components.

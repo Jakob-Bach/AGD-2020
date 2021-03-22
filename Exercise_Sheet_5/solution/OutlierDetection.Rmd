@@ -1,0 +1,152 @@
+---
+title: "Exercise 5 of \"Big Data Analytics\" (Winter Semester 2020/21)"
+output: html_notebook
+---
+
+# Task 3: Outlier Detection
+
+As for clustering, many outlier detection algorithms also use distances.
+Thus, we should normalize the data:
+
+```{r}
+dataset <- data.frame(scale(faithful))
+```
+
+As a side note: Though the `faithful` dataset is rather simple, it even was used in the summary chapter of [a dissertation on outlier detection at our chair](http://dx.doi.org/10.5445/IR/1000120534).
+
+## a) Visualization
+
+You might remember the scatter plot from the clustering task:
+
+```{r}
+library(ggplot2)
+ggplot(data = dataset) +
+  geom_point(mapping = aes(x = eruptions, y = waiting)) +
+  coord_fixed() # uniform axis scaling
+```
+
+We can plot univariate densities:
+
+```{r}
+ggplot(data = dataset) +
+  geom_histogram(mapping = aes(x = eruptions))
+ggplot(data = dataset) +
+  geom_histogram(mapping = aes(x = waiting))
+```
+
+... but also bivariate densities:
+
+```{r}
+ggplot(data = dataset) +
+  geom_bin2d(mapping = aes(x = eruptions, y = waiting), bins = 10) +
+  scale_fill_distiller(palette = "Spectral")
+```
+
+With `plotly`, we can even make the plot interactive:
+
+```{r}
+library(plotly)
+subplot(
+  plot_ly(dataset, x = ~eruptions, color = I("black"), type = "histogram",
+          name = "eruptions"),
+  plotly_empty(type = "scatter", mode = "markers"), # arguments here serve no purpose other than suppressing warnings
+  plot_ly(dataset, x = ~eruptions, y = ~waiting, type = "histogram2dcontour",
+          showscale = FALSE, name = "faithful"),
+  plot_ly(dataset, y = ~waiting, color = I("black"), type = "histogram",
+          name = "waiting"),
+  nrows = 2, heights = c(0.2, 0.8), widths = c(0.8, 0.2),
+  shareX = TRUE, shareY = TRUE
+)
+```
+
+Okay, enough plotting for now.
+In our case, the density plots are not really helpful in finding prominent outliers.
+We can clearly see the two clusters, even in univariate plots, and decreasing density far from the centers.
+However, this is what we expect from roughly normally distributed data.
+There are no points which are really far away from the rest.
+In the scatter plots, we see that there are some points with a rather high distance to the two cluster centers and a rather high distance to other points.
+"Rather" is a rather fuzzy term, though.
+Different outlier detection methods try to capture notions of outlierness formally in different ways.
+However, there often remains the challenge of finding a suitable threshold:
+When is a point an inlier and when is it an outlier?
+The definition might depend on the use case rather than some fixed statistical boundaries.
+As a remedy, many outlier detection algorithms do not return a binary decision, but a continuous outlier score.
+This allows moving the threshold flexibly.
+
+## b) Outlier Detection
+
+Both outlier detection function proposed in the task return a vector of outlier scores.
+We define a function for creating a scatter plot with outliers highlighted:
+
+```{r}
+plotOutliers <- function(outlierScores) {
+  plotData <- cbind(dataset, OutlierScore = outlierScores)
+  ggplot(data = plotData) +
+    geom_point(mapping = aes(x = eruptions, y = waiting, color = OutlierScore,
+                             size = OutlierScore)) +
+    coord_fixed() + # uniform axis scaling
+    scale_color_distiller(palette = "Spectral") +
+    guides(color = guide_legend(), size = guide_legend()) # joint legend
+}
+```
+
+From the implementation perspective, we basically add the outlier scores as another column to the dataset.
+Next, we use the aesthetics `color` and `size` to style points based on their outlier score.
+Let's see the function in action:
+
+```{r, fig.height = 4, fig.width = 8}
+gridExtra::grid.arrange(
+  plotOutliers(DDoutlier::KNN_SUM(dataset, k = 5)) + ggtitle("kNN"),
+  plotOutliers(dbscan::lof(dataset, k = 5)) + ggtitle("LOF"),
+  nrow = 1, respect = TRUE
+)
+```
+
+Another implementation detail:
+Our plot function returns the plots as objects, which we arrange side-by-side.
+
+We can see some commonalities and some differences between the results of the two methods.
+For example, points in the centers of the clusters generally have low outlier scores.
+The top-right-most point has a high outlier score for both methods.
+
+In contrast, several points in the region between the clusters have a high score for kNN, but a low score for LOF.
+These points are in a region of low density, with comparatively high distances to nearest neighbors.
+For kNN, only the distance matters, and the same distance scale is considered globally.
+For LOF, points which have a high kNN distance, but also neighbors with a high kNN distance, get a comparatively low score.
+This means the local situation plays a bigger role.
+
+In the bottom-left corner, you can see two points with high LOF score, but medium kNN score.
+For kNN, these points clearly have a higher kNN distance than points in the cluster center.
+However, they are not far off, resulting in a comparatively low outlier score.
+For LOF, the neighbors of these points have a clearly lower distance to *their* neighbors, because they are closer to the center.
+Thus, the LOF score of the two points under discussion is rather high.
+
+## c) Subspace Outliers
+
+To ease comparison, we create a grid with univariate outlier scores, bivariate outlier scores and bivariate density.
+
+```{r, fig.height = 8, fig.width = 8}
+gridExtra::grid.arrange(
+  plotOutliers(DDoutlier::KNN_SUM(dataset$eruptions, k = 5)) +
+    ggtitle("Outliers for \"eruptions\"") + theme(legend.position = "none"),
+  plotOutliers(DDoutlier::KNN_SUM(dataset$waiting, k = 5)) +
+    ggtitle("Outliers for \"waiting\"") + theme(legend.position = "none"),
+  plotOutliers(DDoutlier::KNN_SUM(dataset, k = 5)) +
+    ggtitle("Outliers for full space") + theme(legend.position = "none"),
+  ggplot(data = dataset) +
+    geom_bin2d(mapping = aes(x = eruptions, y = waiting), bins = 10) +
+    scale_fill_distiller(palette = "Spectral") +
+    ggtitle("Density") + theme(legend.position = "none"),
+  nrow = 2, ncol = 2, respect = TRUE
+)
+```
+
+There definitely are points whose outlier score differs between subspaces.
+For example, the points with the lowest and highest waiting times have a high outlier score regarding `waiting`,
+but a lower score regarding `eruptions`.
+Also, there is a point in the middle at roughly (-0.4, -0.1),
+which is quite outlying regarding `eruptions` (it is the only point in some "vertical corridor" around it),
+but rather normal regarding `waiting` (some other points are in same "horizontal corridor" around it).
+There are also non-trivial outliers.
+For example, the point at roughly (-1, 0) is perfectly normal in either one-dimensional space,
+but has a high outlier score in the two-dimensional space.

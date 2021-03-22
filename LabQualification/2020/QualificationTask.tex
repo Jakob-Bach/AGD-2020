@@ -1,0 +1,69 @@
+\documentclass[headinclude,headsepline]{scrartcl}
+
+%packages
+\usepackage{scrlayer-scrpage} %for the header
+\usepackage{paralist} %for better enumerate (compactenum)
+\usepackage[margin=1.15in]{geometry} %smaller amrgin
+\usepackage[super]{nth} %to have superscript for date (th)
+\usepackage{hyperref}
+
+%commands
+%commands
+\newcommand{\HandInDate}{\nth{29} of February 2020}
+\ihead{
+	\textbf{Lab Qualification Exercise}
+}
+\ohead{
+	Analysetechniken für große Datenbestände
+}
+
+\begin{document}
+
+\section{Lab Qualification Task}
+
+To qualify for the lab course \emph{Praktikum: Analyse großer Datenbestände}, we ask you to work on the Data Mining Cup task from 2019.
+It is a binary classification task with the goal to predict fraud at self-checkouts in retail.
+You can get the full task, including data and data description from \url{https://www.data-mining-cup.com/reviews/dmc-2019/}.
+Please only download the task and not the solution, as the class labels of the test data must not be used in your prediction pipeline.
+
+\subsection{Assessment}
+
+There are three criteria we asses your solution with:
+
+\begin{enumerate}
+	\item Code readability/understandability.
+	\item Reproducibility of results and adhering to the prescribed submission format.
+	\item Prediction quality penalized by model complexity.
+\end{enumerate}
+
+Hence, it is not just important to upload a reasonably good prediction, but also code of decent quality.
+In terms of the prediction quality, we take into account how complex your prediction pipeline is.
+Simpler methods are preferable -- this is only a qualification task, after all.
+You should be able to solve the task with a standard notebook or desktop PC, not spending hours on extensive parameter tuning or training deep neural networks.
+
+Note that the DMC organizers did not choose a standard evaluation measure like accuracy, but a custom score as defined in the task.
+We will use this measure as well.
+As the classes are very imbalanced, we have also uploaded a presentation with counter-measures against class imbalance, including corresponding R packages.
+However, it is not necessary to use this methods, or you might just pick a simple one like random undersampling.
+
+\subsection{Submission Format}
+
+You should hand in three files: a prediction file, a code file and the output of the code.
+All files have to be uploaded to ILIAS.
+\textbf{The deadline is the \HandInDate.}
+
+The prediction file should have exactly the same format as defined by the DMC organizers in the task description.
+Name your submission file \texttt{FIRST\_LASTNAME\_prediction.csv} (e.g., \texttt{Klemens\_Boehm\_prediction.csv}).
+
+You should hand in the code as a Rmarkdown\footnote{\url{https://rmarkdown.rstudio.com/lesson-1.html}} file named \texttt{FIRST\_LASTNAME\_code.Rmd} or as Jupyter notebook\footnote{\url{https://jupyter.org/}}.
+You might use R or Python.
+The Rmarkdown format allows to mix plain text (explaining your approach), code and (after executing/rendering it) results.
+Also hand in the generated/rendered HTML output file as \texttt{FIRST\_LASTNAME\_output.html}.
+The code should be well commented and simple to understand.
+Besides the pipeline used for your submitted prediction file, the notebook should also include code and descriptions of exploration, pre-processing/feature engineering, baseline predictions and (optional, not too many) other approaches you tried.
+However, make the separation of your final solution and alternatives clear.
+Also, remove any code which does not work.
+Your code should read in the DMC files \texttt{train.csv} and \texttt{test.csv} from a folder \texttt{data/} placed at the same location as the code.
+Furthermore, your code should create your prediction file in the folder \texttt{data/} when executed from start to end, without any need for manual intervention (like setting parameters, commenting in/out, non-linear execution order).
+
+\end{document}

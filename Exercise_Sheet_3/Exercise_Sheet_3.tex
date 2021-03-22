@@ -1,0 +1,161 @@
+\documentclass[headinclude,headsepline]{scrartcl}
+
+%packages
+\usepackage[ngerman]{babel} % hyphenation
+\usepackage{scrlayer-scrpage} % header
+\usepackage{hyperref} % links
+\usepackage{paralist} % enumerations
+\usepackage[margin=1.15in]{geometry}
+\usepackage{enumitem} % enumerations
+\usepackage{listings} % code blocks
+\usepackage[usenames,dvipsnames]{xcolor} % color names
+
+%commands
+\ihead{
+	\textbf{Übungsblatt 3}
+}
+\ohead{
+	Analysetechniken für große Datenbestände WS 20/21
+}
+\lstset{ % configure code listings
+	belowcaptionskip=1\baselineskip,
+	language=R,
+	breaklines=true,
+	basicstyle=\footnotesize\ttfamily,
+	commentstyle=\itshape\color{Gray},
+	stringstyle=\color{Orange},
+	keywordstyle=\bfseries\color{OliveGreen},
+	identifierstyle=\color[HTML]{000080},
+	frame=single, % adds a frame around the code
+	frameround=ffff,
+	framerule=0.2pt,
+	backgroundcolor=\color[HTML]{FAFDFF},
+	rulecolor=\color[HTML]{D2ECFE},
+	tabsize=2
+}
+\hypersetup{
+	colorlinks=true, % false: boxed links; true: colored links
+	linkcolor=black, % color of internal links (change box color with linkbordercolor)
+	citecolor=black, % color of links to bibliography
+	filecolor=black, % color of file links
+	urlcolor=blue % color of external links
+}
+\newcommand{\taskcategory}[1]{{\color[HTML]{800000}\emph{(#1)}}}
+\newcommand{\taskname}[1]{\textbf{[#1]}}
+\newcommand{\code}[1]{{\color[HTML]{000080}\texttt{#1}}}
+
+\begin{document}
+
+\section*{Allgemeines}
+
+Die vorgesehene Bearbeitungszeit für das Übungsblatt endet am Freitag, 18.12.2020, um 12:00 Uhr.
+Kurze Zeit später werden die Lösung und das nächste Übungsblatt hochgeladen.
+
+Falls Sie anonymes Peer-Feedback geben und erhalten wollen, laden Sie Ihre Lösung zu den Programmieraufgaben innerhalb der Frist in das ILIAS-Übungsobjekt ``Abgaben'' hoch.
+Feedback kann erst nach Ablauf der Abgabefrist gegeben werden.
+Geben Sie das Feedback bis zum Mittwoch, 23.12.2020, 23:55 Uhr.
+Erst nach Ablauf dieser Feedbackfrist wird dann das erhaltene Feedback sichtbar.
+Weitere Details zum Peer-Feedback finden Sie in der Datei ``Feedback\_geben.pdf'' im ILIAS.
+
+\section{Online-Test 3}
+
+Der dritte Online-Test steht ab dem 07.12.2020, 00:00 Uhr im ILIAS bereit.
+Er beschäftigt sich mit den Vorlesungskapiteln 4 (Klassifikation mit Entscheidungsbäumen) und 5 (Evaluation von Datenanalyseverfahren).
+
+\section{Entscheidungsbäume}
+
+Ziel dieser Aufgabe ist es, einen Entscheidungsbaum zur Klassifikation einzusetzen und die Ergebnisse auszuwerten.
+Hierzu verwenden wir den bereits bekannten \code{iris}-Datensatz.
+Die Art der Blume, gespeichert in der Spalte \code{Species}, ist unsere Zielvariable.
+
+\vspace{10pt}
+
+\begin{compactenum}[a)]\itemsep10pt
+	\item
+	\taskname{Training-Test-Partitionierung}
+	Teilen Sie die Datenobjekte in 70\%-Trainingsdaten und 30\% Testdaten auf.
+	Hierbei könnte die Funktion \code{sample()} helfen.
+	Warum machen wir überhaupt so eine Aufteilung?
+	\taskcategory{Basis}
+	\item
+	\taskname{Training}
+	Nutzen Sie die Funktion \code{rpart()} aus dem Paket \code{rpart}, um einen Entscheidungsbaum zu trainieren.
+	Diese Funktion hat einige Parameter, die den Trainingsprozess steuern.
+	Für den Anfang sollten aber die voreingestellten Werte ausreichen.
+	Sie müssen also nur die Trainingsdaten und eine Formel, die den Zusammenhang zwischen Zielvariable und Features beschreibt, übergeben.
+	\taskcategory{Basis}
+	\item
+	\taskname{Modell}
+	Geben Sie den Entscheidungsbaum auf die Konsole aus.
+	Erstellen Sie einen Plot, z.B. mit dem Paket \code{rpart.plot}.
+	Wie hängt der Entscheidungsbaum mit den Plots des ersten Übungsblatts und den Ergebnissen der Entropie-Aufgabe des zweiten Übungsblatts zusammen?
+	\taskcategory{Basis}
+	\item
+	\taskname{Evaluation}
+	Nutzen Sie die Funktion \code{predict()}, um Vorhersagen auf Trainings- und Testdaten zu machen.
+	Berechnen Sie die Erfolgsquote (Accuracy) der Vorhersagen.
+	Wie bewerten Sie die Ergebnisse?
+	\taskcategory{Basis}
+	\item
+	\taskname{Alternative Pakete}
+	Verwenden Sie ein anderes Paket, welches Entscheidungsbäume enthält.
+	Es eignen sich beispielsweise \code{party} (Funktion \code{ctree()}) und \code{C50}.
+	Wie unterscheidet sich der notwendige Code für Training, Vorhersagen und Plots?
+	Unterscheidet sich der gelernte Entscheidungsbaum, und wenn ja, warum?
+	\taskcategory{Vertiefung}
+\end{compactenum}
+
+\section{Evaluation von Klassifikationsmodellen}
+
+Ziel dieser Aufgabe ist es, die Vorhersagequalität eines Entscheidungsbaums auf verschiedene Arten auszuwerten.
+Wir verwenden dazu weiterhin \code{rpart}-Entscheidungsbäume.
+Außerdem nutzen wir eine Abwandlung des \code{iris}-Datensatzes mit binärer Zielvariable.
+Führen Sie dazu folgenden Code aus:
+
+\begin{lstlisting}
+dataset <- iris[, colnames(iris) != "Species"]
+dataset$virginica <- factor(c("no", "yes")[(iris$Species=="virginica") + 1])
+\end{lstlisting}
+
+\vspace{10pt}
+
+\begin{compactenum}[a)]\itemsep10pt
+	\item
+	\taskname{Baselines (1)}
+	Bestimmen Sie die Erfolgsquote, wenn einfach konstant die häufigere Klasse vorhergesagt wird.
+	Welche Aussage ermöglicht uns dies über den Einsatz weiterer Vorhersagemodelle?
+	\taskcategory{Basis}
+	\item
+	\taskname{Baselines (2)}
+	Setzen Sie als nächstes ein One-Rules-Modell mittels des Paketes \code{OneR} ein und bestimmen Sie dessen Erfolgsquote.
+	Wie geht dieses Modell mit numerischen Daten um?
+	Inwieweit ist das Modell für den gegebenen Datensatz geeignet?
+	\taskcategory{Basis}
+	\item
+	\taskname{Holdout-Validierung}
+	Werten sie die Erfolgsquote für verschiedene stratifizierte Trai\-ning-Test-Partitionierungen aus, z.B. von 90\%:10\% bis 10\%:90\%.
+	Wie erklären Sie sich die Ergebnisse?
+	\taskcategory{Basis}
+	\item
+	\taskname{Kreuzvalidierung}
+	Implementieren Sie eine k-fache Kreuzvalidierung und betrachten Sie die Ergebnisse für verschiedene Werte von $k$.
+	Insbesondere ist interessant, wie sich der Mittelwert und die Standardabweichung der Erfolgsquote über die Partitionen (Folds) verhalten, wenn Sie $k$ variieren.
+	Wie erklären Sie sich die Ergebnisse?
+	Welchen Wert von $k$ würden Sie empfehlen?
+	\taskcategory{Vertiefung}
+	\item
+	\taskname{Regularisierung}
+	Versuchen Sie, Entscheidungsbäume verschiedener Komplexität zu lernen, indem Sie beim Aufruf von \code{rpart()} beispielsweise die Mindestzahl an Datenobjekten pro Blattknoten kontrollieren.
+	Wie wirkt sich dies auf die Erfolgsquote aus?
+	\taskcategory{Vertiefung}
+	\item
+	\taskname{ROC-Kurve}
+	Sagen Sie Wahrscheinlichkeiten anstelle von Klassenlabels voraus und plotten Sie die ROC-Kurve, beispielsweise mit dem Paket \code{ROSE} oder \code{ROCR}.
+	Welche Erkenntnisse können Sie aus dem Plot ziehen?
+	Berechnen Sie wahlweise die Punkte, an denen die ROC-Kurve einen Knick hat, und heben Sie diese auf dem Plot hervor.
+	Woraus ergeben sich diese Punkte?
+	Berechnen Sie abschließend die Fläche unter der Kurve (=AUC).
+	\taskcategory{Vertiefung}
+\end{compactenum}
+
+\end{document}

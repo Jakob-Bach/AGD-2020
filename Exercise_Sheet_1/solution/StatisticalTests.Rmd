@@ -1,0 +1,176 @@
+---
+title: "Exercise 1 of \"Big Data Analytics\" (Winter Semester 2020/21)"
+output: html_notebook
+---
+
+# Task 3: Statistical Tests
+
+Here is an overview of the `iris` dataset:
+
+```{r}
+summary(iris)
+```
+
+There are four numeric attributes describing the flower and one categorical attribute containing the name of the species.
+
+## a) $\chi^2$ Test (1)
+
+The null hypothesis for the $\chi^2$ test is that two random variables are independent.
+To check the output of the test, we first run it for one attribute.
+Don't forget to discretize the continuous attribute, as the test is intended for categorical variables.
+
+```{r}
+chi2Result <- chisq.test(x = cut(iris$Sepal.Length, breaks = 3), y = iris$Species)
+str(chi2Result)
+```
+
+The resulting data structure looks quite complicated.
+However, printing the result provides a nice summary:
+
+```{r}
+print(chi2Result)
+```
+
+Due to the low p-value, we reject the null hypothesis that the two random variables are independent.
+Let's compare the results of the test to a contingency table:
+
+```{r}
+print(table(cut(iris$Sepal.Length, breaks = 3), iris$Species))
+```
+
+The table also shows that the sepal length clearly varies between the `Species`.
+For comparison, here is the result of a $\chi^2$ test with two independent variables:
+
+```{r}
+print(chisq.test(x = cut(rnorm(nrow(iris)), breaks = 3), y = iris$Species))
+```
+
+Now let's compute the test statistics for all attributes (expect `Species`) of the dataset.
+We could use a `for` loop, but another option to apply a function to vector or list in R is the `sapply()` function.
+
+```{r}
+chi2Statistic <- sapply(setdiff(colnames(iris), "Species"), function(attribute) {
+  chisq.test(x = cut(iris[[attribute]], breaks = 3), y = iris$Species)$statistic
+})
+print(chi2Statistic)
+```
+
+One could compare this to the contingency tables, but a visual explanation as in the next task is easier.
+From the theoretical perspective, a higher test statistic means that the independency hypothesis is rejected more strongly.
+Informally speaking, this could be interpreted as a higher degree of dependence.
+
+Instead of the test statistics, we could also look at the p-values.
+
+```{r}
+chi2P <- sapply(setdiff(colnames(iris), "Species"), function(attribute) {
+  chisq.test(x = cut(iris[[attribute]], breaks = 3),y = iris$Species)$p.value
+})
+print(chi2P)
+```
+Note that a high test statistic corresponds to a low p-value.
+
+## b) $\chi^2$ Test (2)
+
+To plot the attributes grouped by `Species`, we use the `ggplot2` package.
+`ggplot2` allows it to use colors in a plot to symbolize the values of a categorical variable.
+The simplest solution would be to loop over the attributes and create one plot each.
+However, we have something fancier in mind:
+`ggplot2` also allows creating a grid of plots, where the same kind of sub-plot is created for multiple attributes.
+However, this does not work if the attributes are in different columns ("wide format").
+Instead, we have to bring all attribute values to one column and add another categorical column denoting to which attribute the value belongs ("long format").
+
+```{r}
+irisMelted <- reshape2::melt(data = iris, measure.vars = colnames(iris)[1:4])
+str(iris)
+str(irisMelted)
+```
+
+Now here is our plot:
+
+```{r}
+library(ggplot2)
+ggplot(data = irisMelted) +
+  geom_boxplot(mapping = aes(y = value, fill = Species)) + # "fill" denotes the fill color
+  facet_grid(variable ~ ., scales = "free_y") +
+  theme(legend.position = "bottom")
+```
+
+The plot clearly shows that all attributes are not independent of the `Species`.
+Also, note that `Petal.Length` and `Petal.Width`, where the values between `Species` have the best separation, also have the highest test statistics / lowest p-values.
+Thus, $\chi^2$ tests can also be used in classification problems to find out which attributes are suitable to discriminate between classes.
+
+## c) Kolmogorov-Smirnov Test
+
+The Kolmogorov-Smirnov test is based on the distribution of continuous random variables, not the contingency matrix of discrete random variables.
+Thus, we can only compare the attribute values of two specific `Species`.
+We demonstrate this for two attributes, one which discriminates well between `versicolor` and `virginica` and one where there is overlap between values distributions.
+According to `help(ks.test)`, different alternative hypothesis are possible.
+For `alternative="two-sided"`, the null hypothesis is that both random variables have the same distribution.
+
+```{r}
+print(ks.test(x = iris[iris$Species == "versicolor", "Sepal.Width"],
+              y = iris[iris$Species == "virginica", "Sepal.Width"],
+              alternative = "two.sided"))
+print(ks.test(x = iris[iris$Species == "versicolor", "Petal.Width"],
+              y = iris[iris$Species == "virginica", "Petal.Width"],
+              alternative = "two.sided"))
+```
+
+Note that the null hypothesis of having the same distribution cannot be rejected with p = 0.05 (a standard threshold) for `Sepal.Width`.
+In contrast, `Petal.Width` has a very low p-value, as the distributions are clearly separated.
+
+Now we try `alternative = "greater"`.
+According to the help, this does not mean that the values of the first random variable are greater.
+Instead, it means that the cumulative distribution function of `x` lies above that of `y`.
+This is the case if the values of `x` are actually lower than those of `y`.
+Thus, the null hypothesis can be roughly formulated as:
+Values of `x` are greater than/equal to the values of `y`.
+
+```{r}
+print(ks.test(x = iris[iris$Species == "versicolor", "Sepal.Width"],
+              y = iris[iris$Species == "virginica", "Sepal.Width"],
+              alternative = "greater")) # related to CDF!
+print(ks.test(x = iris[iris$Species == "versicolor", "Petal.Width"],
+              y = iris[iris$Species == "virginica", "Petal.Width"],
+              alternative = "greater"))
+```
+
+As `versicolor` rather shows lower values than `virginica` for both attributes
+(thus, its cumulative distribution function is higher),
+we can reject the null hypothesis.
+
+## d) Wilcoxon-Mann-Whitney Test
+
+The Wilcoxon-Mann-Whitney test also compares two distributions, but uses the median instead of the cumulative distribution function.
+Again, we can use different alternatives.
+In `alternative = "two.sided"`, the null hypothesis is that the two distribution have a certain location shift `mu`.
+This parameter is zero by default, i.e., equal distribution (as we had it in the lecture).
+
+```{r}
+print(wilcox.test(x = iris[iris$Species == "versicolor", "Sepal.Width"],
+                  y = iris[iris$Species == "virginica", "Sepal.Width"],
+                  alternative = "two.sided"))
+print(wilcox.test(x = iris[iris$Species == "versicolor", "Petal.Width"],
+                  y = iris[iris$Species == "virginica", "Petal.Width"],
+                  alternative = "two.sided"))
+```
+
+For our two attributes, we can reject the null hypothesis that there is no location shift.
+This corresponds to the plots.
+
+We can also use `alternative = "less"`.
+Note that this is related to the values now, not the cumulative distribution.
+Thus, the alternative hypothesis is that the values of `x` are less than those of `y`
+(Formally speaking: there is a location shift to the left).
+As corresponding null hypothesis, we assume that the values of `x` are greater than or equal to those of `y`.
+
+```{r}
+print(wilcox.test(x = iris[iris$Species == "versicolor", "Sepal.Width"],
+                  y = iris[iris$Species == "virginica", "Sepal.Width"],
+                  alternative = "less")) # related to values!
+print(wilcox.test(x = iris[iris$Species == "versicolor", "Petal.Width"],
+                  y = iris[iris$Species == "virginica", "Petal.Width"],
+                  alternative = "less"))
+```
+
+Again, we get the expected result, as `versicolor` rather shows lower values than `virginica`.

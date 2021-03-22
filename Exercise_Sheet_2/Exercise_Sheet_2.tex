@@ -1,0 +1,171 @@
+\documentclass[headinclude,headsepline]{scrartcl}
+
+%packages
+\usepackage[ngerman]{babel} % hyphenation
+\usepackage{scrlayer-scrpage} % header
+\usepackage{hyperref} % links
+\usepackage{paralist} % enumerations
+\usepackage[margin=1.15in]{geometry}
+\usepackage{enumitem} % enumerations
+\usepackage{listings} % code blocks
+\usepackage[usenames,dvipsnames]{xcolor} % color names
+
+%commands
+\ihead{
+	\textbf{Übungsblatt 2}
+}
+\ohead{
+	Analysetechniken für große Datenbestände WS 20/21
+}
+\lstset{ % configure code listings
+	belowcaptionskip=1\baselineskip,
+	language=R,
+	breaklines=true,
+	basicstyle=\footnotesize\ttfamily,
+	commentstyle=\itshape\color{Gray},
+	stringstyle=\color{Orange},
+	keywordstyle=\bfseries\color{OliveGreen},
+	identifierstyle=\color[HTML]{000080},
+	frame=single, % adds a frame around the code
+	frameround=ffff,
+	framerule=0.2pt,
+	backgroundcolor=\color[HTML]{FAFDFF},
+	rulecolor=\color[HTML]{D2ECFE},
+	tabsize=2
+}
+\hypersetup{
+	colorlinks=true, % false: boxed links; true: colored links
+	linkcolor=black, % color of internal links (change box color with linkbordercolor)
+	citecolor=black, % color of links to bibliography
+	filecolor=black, % color of file links
+	urlcolor=blue % color of external links
+}
+\newcommand{\taskcategory}[1]{{\color[HTML]{800000}\emph{(#1)}}}
+\newcommand{\taskname}[1]{\textbf{[#1]}}
+\newcommand{\code}[1]{{\color[HTML]{000080}\texttt{#1}}}
+
+\begin{document}
+
+\section*{Allgemeines}
+
+Die vorgesehene Bearbeitungszeit für das Übungsblatt endet am Freitag, 04.12.2020, um 12:00 Uhr.
+Kurze Zeit später werden die Lösung und das nächste Übungsblatt hochgeladen.
+
+Falls Sie anonymes Peer-Feedback geben und erhalten wollen, laden Sie Ihre Lösung zu den Programmieraufgaben innerhalb der Frist in das ILIAS-Übungsobjekt ``Abgaben'' hoch.
+Feedback kann erst nach Ablauf der Abgabefrist gegeben werden.
+Geben Sie das Feedback bis zum Mittwoch, 09.12.2020, 23:55 Uhr.
+Erst nach Ablauf dieser Feedbackfrist wird dann das erhaltene Feedback sichtbar.
+Weitere Details zum Peer-Feedback finden Sie in der Datei ``Feedback\_geben.pdf'' im ILIAS.
+
+\section{Online-Test 2}
+
+Der zweite Online-Test steht ab dem 23.11.2020, 00:00 Uhr im ILIAS bereit.
+Er beschäftigt sich mit den Vorlesungskapiteln 2 (Statistische Grundlagen) und 3 (Informatik-Grundlagen).
+
+\section{Hauptkomponentenanalyse (PCA)}
+
+Ziel dieser Aufgabe ist es, eine Principal Component Analysis (PCA) anzuwenden und die Ergebnisse zu interpretieren.
+Hierfür verwenden wir wieder den eingebauten Datensatz \code{iris}, welcher bereits vom ersten Übungsblatt bekannt ist.
+
+\vspace{10pt}
+
+\begin{compactenum}[a)]\itemsep10pt
+	\item
+	\taskname{Berechnung}
+	Berechnen Sie eine PCA für den \code{iris}-Datensatz ohne die Zielvariable \code{Species}.
+	Nutzen Sie dafür die Funktion \code{prcomp()} und verwenden Sie deren eingebauten Parameter zur Normalisierung.
+	Welche Komponenten hat das Ergebnisobjekt?
+	Warum haben wir die Attribute überhaupt normalisiert?
+	\taskcategory{Basis}
+	\item
+	\taskname{Erklärte Varianz}
+	Ermitteln Sie aus dem Ergebnisobjekt, welcher Anteil der Varianz von den einzelnen Hauptkomponenten bzw. kumuliert über die ersten $k$ Hauptkomponenten abgedeckt wird.
+	Plotten Sie die erklärte Varianz über die einzelnen Hauptkomponenten.
+	Sie können hierfür entweder manuell einen Plot erstellen oder darauf vertrauen, dass die generische \code{plot()}-Funktion für das Ergebnisobjekt der PCA überschrieben wurde.
+	Wie verteilt sich die erklärte Varianz und warum ist das so?
+	\taskcategory{Basis}
+	\item
+	\taskname{Plot der Attribute}
+	Plotten Sie die ersten beiden Attribute der ursprünglichen Daten in einem Scatter Plot gegeneinander.
+	Plotten Sie danach die ersten beiden Hauptkomponenten gegeneinander.
+	Was fällt Ihnen auf?
+	\taskcategory{Basis}
+	\item
+	\taskname{Korrelation}
+	Berechnen Sie die paarweise Korrelation der Attribute in den ursprüngli\-chen Daten sowie nach der PCA-Transformation.
+	Falls Sie eine graphische Korrelationsmatrix bevorzugen, können Sie das Paket \code{corrplot} verwenden.
+	Warum erhalten Sie das Ihnen vorliegende Ergebnis?
+	\taskcategory{Vertiefung}
+	\item
+	\taskname{MSE}
+	Implementieren Sie eine Funktion für die mittlere quadrierte Abweichung (MSE) zwischen zwei Matrizen:  $MSE(x,\hat{x}) = \frac{1}{m \times n} \sum_{i=1}^{m} \sum_{j=1}^{n} (x_{i,j} - \hat{x}_{i,j})^2$
+	\taskcategory{Vertiefung}
+	\item
+	\taskname{Rekonstruktionsfehler}
+	Berechnen sie den MSE, wenn die Daten auf jeweils eine der Hautkomponenten und wieder zurück transformiert werden.
+	Testweise können Sie auch auf die ersten $k$ Hauptkomponenten transformieren, für verschiedene Werte von $k$.
+	Vergleichen Sie das mit dem MSE, wenn jeweils ein Attribut der ursprünglichen Daten beibehalten und der Rest durch den Mittelwert ersetzt wird.
+	\taskcategory{Vertiefung}
+\end{compactenum}
+
+\section{Entropie}
+
+Ziel dieser Aufgabe ist es, Entropie zu nutzen, um geeignete Attribute und Werte für eine Partitionierung des \code{iris}-Datensatzes zu finden.
+Eine vergleichbare Vorgehensweise findet sich beim Trainieren von Entscheidungsbäumen, was wir in der nächsten Übung betrachten.
+
+\vspace{10pt}
+
+\begin{compactenum}[a)]\itemsep10pt
+	\item
+	\taskname{Split-Entropie (1)}
+	Implementieren Sie eine Funktion \code{splitEntropy()}.
+	Diese soll einen numerischen Attribut-Vektor \code{x}, einen kategorischen Klassen-Vektor \code{y} und einen numerischen Split-Punkt \code{splitPoint} erhalten.
+	Die Funktion soll die Entropie des Splits berechnen (Formel siehe Vorlesung) und als Zahl zurückgeben.
+	Nutzen Sie 2 als Basis für den Logarithmus.
+	Sie können Ihre Funktion mit folgendem Code testen:
+	
+	\begin{lstlisting}
+x <- 1:5
+y <- factor(c(1, 1, 1, 0, 0))
+differences <- c(
+	splitEntropy(x, y, 0) - -sum(c(3/5, 2/5)*log2(c(3/5, 2/5))),
+	splitEntropy(x, y, 2.5) - -3/5*sum(c(1/3, 2/3)*log2(c(1/3, 2/3))),
+	splitEntropy(x, y, 3.5) - 0
+)
+stopifnot(all(abs(differences) < 1e-10))
+	\end{lstlisting}
+	
+	Warum verwenden wir überhaupt den letzten Befehl?
+	\taskcategory{Basis}
+	\item
+	\taskname{Split-Entropie (2)}
+	Implementieren Sie eine Funktion \code{splitEntropyForData()}.
+	Diese soll ein \code{data.frame} namens \code{dataset} und einen String namens \code{target} erhalten.
+	Ihre Funktion soll die Split-Entropie für alle Attribute und alle sinnvollen Split-Punkte berechnen.
+	Sie können davon ausgehen, dass alle Spalten bis auf die, deren Name mittels \code{target} übergeben wird, numerisch sind.
+	Wählen Sie einen Rückgabetyp, der die nötigen Daten für die folgenden Aufgaben speichern kann.
+	\taskcategory{Basis}
+	\item
+	\taskname{Plot}
+	Berechnen Sie die Split-Entropie für alle möglichen Attribute und Split-Punkte des \code{iris}-Datensatzes.
+	Plotten Sie die Split-Entropie in Abhängigkeit des Split-Punktes für alle Attribute.
+	Was schließen Sie aus den Ergebnissen?
+	\taskcategory{Vertiefung}
+	\item
+	\taskname{Split-Bestimmung}
+	Finden Sie den besten Split für den \code{iris}-Datensatz.
+	Betrachten Sie die Plots des Datensatzes von Übungsblatt 1 und überlegen Sie, ob der gefundene Split Sinn ergibt.
+	\taskcategory{Basis}
+\end{compactenum}
+
+\section{Bring Your Own Theoretical Task}
+
+Denken Sie sich für die nächste Übungssitzung eine Frage aus, wie sie in der mündlichen Prüfung gestellt werden könnte.
+Sie können sich von der Art her an den möglichen Prüfungs\-fragen am Ende der Vorlesungskapitel orientieren.
+Inhaltlich sollte sich die Frage auf eines der Vorlesungskapitel 1 bis 3 beziehen.
+Vom Niveau her sollte die Frage nicht einfach Wissen 1:1 abfragen, sondern Verständnis fordern.
+Beispielsweise könnte es darum gehen, Sachverhalte zu vergleichen, einzuordnen, zu analysieren etc.
+Wir werden die Fragen in der Übungssitzung zunächst in Kleingruppen diskutieren und danach die interessantesten Fragen im Plenum besprechen.
+Sie müssen die Frage nicht zusammen mit Ihrem Code hochladen.
+
+\end{document}

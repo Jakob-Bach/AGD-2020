@@ -1,0 +1,151 @@
+\documentclass[headinclude,headsepline]{scrartcl}
+
+%packages
+\usepackage[ngerman]{babel} % hyphenation
+\usepackage{scrlayer-scrpage} % header
+\usepackage{hyperref} % links
+\usepackage{paralist} % enumerations
+\usepackage[margin=1.15in]{geometry}
+\usepackage{enumitem} % enumerations
+\usepackage{listings} % code blocks
+\usepackage[usenames,dvipsnames]{xcolor} % color names
+
+%commands
+\ihead{
+	\textbf{Übungsblatt 4}
+}
+\ohead{
+	Analysetechniken für große Datenbestände WS 20/21
+}
+\lstset{ % configure code listings
+	belowcaptionskip=1\baselineskip,
+	language=R,
+	breaklines=true,
+	basicstyle=\footnotesize\ttfamily,
+	commentstyle=\itshape\color{Gray},
+	stringstyle=\color{Orange},
+	keywordstyle=\bfseries\color{OliveGreen},
+	identifierstyle=\color[HTML]{000080},
+	frame=single, % adds a frame around the code
+	frameround=ffff,
+	framerule=0.2pt,
+	backgroundcolor=\color[HTML]{FAFDFF},
+	rulecolor=\color[HTML]{D2ECFE},
+	tabsize=2
+}
+\hypersetup{
+	colorlinks=true, % false: boxed links; true: colored links
+	linkcolor=black, % color of internal links (change box color with linkbordercolor)
+	citecolor=black, % color of links to bibliography
+	filecolor=black, % color of file links
+	urlcolor=blue % color of external links
+}
+\newcommand{\taskcategory}[1]{{\color[HTML]{800000}\emph{(#1)}}}
+\newcommand{\taskname}[1]{\textbf{[#1]}}
+\newcommand{\code}[1]{{\color[HTML]{000080}\texttt{#1}}}
+
+\begin{document}
+
+\section*{Allgemeines}
+
+Die vorgesehene Bearbeitungszeit für das Übungsblatt endet am Freitag, 15.01.2021, um 12:00 Uhr.
+Kurze Zeit später wird das nächste Übungsblatt hochgeladen.
+
+Falls Sie anonymes Peer-Feedback geben und erhalten wollen, laden Sie Ihre Lösung zu den Programmieraufgaben innerhalb der Frist in das ILIAS-Übungsobjekt ``Abgaben'' hoch.
+Feedback kann erst nach Ablauf der Abgabefrist gegeben werden.
+Geben Sie das Feedback bis zum Mittwoch, 20.01.2021, 23:55 Uhr.
+Erst nach Ablauf dieser Feedbackfrist wird dann das erhaltene Feedback sichtbar.
+Weitere Details zum Peer-Feedback finden Sie in der Datei ``Feedback\_geben.pdf'' im ILIAS.
+
+\section{Online-Test 4}
+
+Der vierte Online-Test steht ab dem 21.12.2020, 00:00 Uhr im ILIAS bereit.
+Er beschäftigt sich mit den Vorlesungskapiteln 6 (Association Rules), 7 (Schnelles Bestimmen der Frequent Itemsets) und 8 (Pattern Mining in Gegenwart von Constraints).
+
+\section{Association Rules}
+
+Ziel dieser Aufgabe ist es, verschiedene Varianten von Frequent Itemset Mining und Association Rule Mining anzuwenden.
+Hierzu setzen wir das Paket \code{arules} ein, welches den Datensatz \code{Groceries} mitliefert.
+
+\vspace{10pt}
+
+\begin{compactenum}[a)]\itemsep10pt
+	\item
+	\taskname{Transaktiondaten}
+	Laden Sie den Datensatz mit \code{data(Groceries)}.
+	Wie ist der Datensatz aufgebaut?
+	\taskcategory{Basis}
+	\item
+	\taskname{Frequent Itemset Mining}
+	Bestimmen Sie mittels \code{apriori()} alle Frequent Itemsets mit einem Support von mindestens 5\%.
+	Mittels \code{inspect()} können Sie die Itemsets betrachten.
+	Was passiert, wenn Sie alle maximalen Frequent Itemsets mit dieser Support-Grenze bestimmen?
+	Maximalität lässt sich wahlweise in \code{apriori()} einstellen oder nachträglich herausfiltern.
+	\taskcategory{Basis}
+	\item
+	\label{task:filter}
+	\taskname{Association Rules Mining}
+	Bestimmen Sie mittels \code{apriori()} alle Association Rules mit einem Support von mindestens 1\% und einer minimalen Confidence von 40\%.
+	Welche fünf Regeln haben die höchste Confidence?
+	(Tipp: \code{head()}-Funktion)
+	Welche Regeln enthalten \textit{yogurt} (als eines der Items) auf der linken Seite und haben eine Confidence größer als 50\%?
+	(Tipp: \code{subset()}-Funktion)
+	\taskcategory{Basis}
+	\item
+	\taskname{Visualisierung}
+	Nutzen Sie das Paket \code{arulesViz}, um die extrahierten Regeln zu visualisieren.
+	Die CRAN-Homepage des Pakets enthält einen ausführlichen Artikel (`vignette'), welcher die verschiedenen Plot-Typen darstellt.
+	\taskcategory{Vertiefung}
+	\item
+	\taskname{Constraints (1)}
+	Behalten Sie die bisherigen Werte für Support und Confidence bei.
+	Bestimmen Sie alle Regeln, die ausschließlich \code{yogurt} auf der rechten Seite haben.
+	Versuchen Sie hierbei, die Constraints bereits in \code{apriori()} selbst zu berücksichtigen.
+	Bestimmen Sie nun alle Regeln, die ausschließlich \code{yogurt} auf der linken Seite haben.
+	Warum unterscheiden sich die Ergebnisse?
+	\taskcategory{Basis}
+	\item
+	\taskname{Constraints (2)}
+	Erhalten Sie dieselben Ergebnisse, wenn Sie die Constraints wie in \ref{task:filter}) erst nach Ablauf des Algorithmus anwenden?
+	Wann und warum würden Sie Mining mit Constraints im Vergleich zu Post-Processing bevorzugen?
+	\taskcategory{Basis}
+	\item
+	\taskname{Multi-Level (1)}
+	Nutzen Sie die Funktion \code{aggregate()}, um die \code{Groceries}-Daten auf \code{level2} zu aggregieren.
+	Extrahieren Sie alle Regeln mit einem minimalen Support von 10\% und einer minimalen Confidence von 40\%.
+	Warum ist die höhere Support-Grenze im Vergleich zu vorigen Teilaufgaben sinnvoll?
+	\taskcategory{Vertiefung}
+	\item
+	\taskname{Multi-Level (2)}
+	Nutzen Sie die Funktion \code{addAggregate()}, um eine Level-Crossing-Repräsentation des Datensatzes aus den ursprünglichen Items und \code{level2} zu erstellen.
+	Bestimmen Sie alle Regeln mit den Schwellwerten der vorigen Teilaufgabe.
+	Was fällt Ihnen auf?
+	\taskcategory{Vertiefung}
+	\item
+	\taskname{Klassifikation (1)}
+	Association Rules können auch für simple Klassifikationsmodelle verwendet werden.
+	Hierzu nutzen wir den \code{iris}-Datensatz und das Paket \code{arulesCBA}.
+	Diskretisieren Sie zunächst die numerischen Attribute (\code{arulesCBA} stellt entsprechende Funktionen bereit) und erstellen Sie ein \code{transactions}-Objekt.
+	Extrahieren Sie nun Regeln, die \code{Species} als rechte Seite haben.
+	Sind die Regeln sinnvoll?
+	Was sind Vor- und Nachteile eines solchen Ansatzes im Vergleich zu anderen Klassifikationsmethoden?
+	\taskcategory{Vertiefung}
+	\item
+	\taskname{Klassifikation (2)}
+	Nutzen Sie die Funktion \code{CBA()}, um ein vollwertiges Regel-basiertes Klassifikationsmodell zu trainieren.
+	Was ändert sich im Vergleich zur vorigen Teilaufgabe?
+	Machen Sie eine Vorhersage und bewerten Sie die Vorhersagequalität.
+	\taskcategory{Vertiefung}
+\end{compactenum}
+
+\section{Bring Your Own Theoretical Task}
+
+Denken Sie sich für die nächste Übungssitzung eine Frage aus, wie sie in der mündlichen Prüfung gestellt werden könnte.
+Sie können sich von der Art her an den möglichen Prüfungs\-fragen am Ende der Vorlesungskapitel orientieren.
+Inhaltlich sollte sich die Frage auf eines der Vorlesungskapitel 4 (Klassifikation mit Entscheidungsbäumen) bis 8 (Pattern Mining in Gegenwart von Constraints) beziehen.
+Vom Niveau her sollte die Frage nicht einfach Wissen 1:1 abfragen, sondern Verständnis fordern.
+Beispielsweise könnte es darum gehen, Sachverhalte zu vergleichen, einzuordnen, zu analysieren etc.
+Wir werden die Fragen in der Übungssitzung zunächst in Kleingruppen diskutieren und danach die interessantesten Fragen im Plenum besprechen.
+Sie müssen die Frage nicht zusammen mit Ihrem Code hochladen.
+
+\end{document}
