@@ -5,7 +5,8 @@ I re-structured the exercises as part of the ["Baden-Württemberg-Zertifikat fü
 The goal of the exercises is to apply basic data-mining techniques to small toy datasets.
 The solutions use the programming language R, version `4.0.3`, and the recent (end of 2020 / beginning of 2021) versions of all required packages.
 Solutions are available as notebooks, in both `.Rmd` as well as `.html` format.
-The tasks descriptions are in German, but the solutions are in English.
+Besides programming exercises, there were also exercise sessions and online tests; we provide exports of the latter.
+The tasks descriptions, online tests, and evaluation surveys are in German, while the solutions for the programming exercises are in English.
 
 ## Exercise Structure
 
